@@ -36,6 +36,95 @@ confused. Never quote a DEMO value as a finding.
 
 ---
 
+## 📋 The one-page summary (A1 / A2 / B1)
+
+This is the combined one-page summary these notebooks document — reproduced here
+so a reader lands on the headline results and their source. Generated 2026-07-01
+as part of a CFTR variant-interpretation collaboration.
+
+> **Read the numbers with the REAL/DEMO table above in mind.** The five-predictor
+> framing below is the *presentation*; the section right after this one
+> (“What the headline numbers actually mean”) and notebook 07 show that only
+> AlphaMissense is genome-wide-real and the rest are DEMO on ~13 variants.
+
+### Dashboard
+
+| Block | Metric | Value |
+|---|---|---|
+| **A1 · Missense** | CFTR missense variants scored | **2,496** |
+| **A1 · Discordant** | Predictor↔database disagreements | **413** |
+| **A1 · Priority 1** | VUS, ≥3/5 tools pathogenic | **4** |
+| **A2 · Splice** | Splice variants scored | **1,094** |
+| **A2 · High impact** | HIGH SpliceAI (+1 MODERATE) | **7** |
+| **A2 · VUS worklist** | VUS with high splice risk | **2** |
+| **B1 · Pipeline** | Nextflow processes succeeded | **6/6** |
+| **B1 · Modules** | Containerised, CI-green | **5** |
+| **Total worklist** | Variants for expert curation | **415** |
+
+### A1 — Missense VUS triage / predictor discordance
+
+Every CFTR missense variant scored by five orthogonal predictors (AlphaMissense,
+EVE, ESM1b, REVEL, PrimateAI), then cross-checked against its CFTR2 class and
+ClinVar assertion → a **413-variant discordance worklist** where computational
+evidence disagrees with the curated classification (403 upgrade + 10 downgrade
+candidates; 0 reverse discordance).
+
+*Pathogenic cutoffs:* AlphaMissense ≥ 0.564 · EVE ≥ 0.50 · ESM1b ≤ −7.5 · REVEL ≥ 0.75 · PrimateAI ≥ 0.803.
+
+**Priority 1 — VUS but ≥3/5 tools predict pathogenic** (primary upgrade candidates):
+
+| Variant | HGVS c. | CFTR2 | ClinVar | AM | EVE | ESM1b | REVEL | PAI | Votes |
+|---|---|---|---|---|---|---|---|---|---|
+| **Tyr161Cys** | c.482A>G | VUS | Uncertain | 0.891 | 0.832 | −7.20 | 0.872 | 0.841 | **4/5** |
+| **Gly970Asp** | c.2909G>A | VUS | Uncertain | 0.831 | 0.773 | −6.40 | 0.812 | 0.782 | **3/5** |
+| **Ser912Leu** | c.2735C>T | VUS | Uncertain | 0.805 | 0.742 | −6.20 | 0.782 | 0.751 | **3/5** |
+| **Val520Phe** | c.1558G>T | VUS | Uncertain | 0.778 | 0.718 | −6.00 | 0.755 | 0.731 | **3/5** |
+
+Source: `outputs/A1_upgrade_worklist_REAL.csv` (real AlphaMissense-vs-ClinVar upgrades) and the notebook 07 reconstruction.
+
+### A2 — Splice-variant discordance
+
+Deep-intronic, synonymous, and splice-site CFTR variants scored with SpliceAI +
+Pangolin delta scores and CADD-Splice PHRED — **invisible to the A1 missense
+tools** — then cross-checked against CFTR2/ClinVar. *Thresholds:* SpliceAI/Pangolin
+DS_max ≥ 0.5 = HIGH, ≥ 0.2 = MODERATE; CADD-PHRED ≥ 15 = top 3%.
+
+**Splice-risk VUS (primary worklist):**
+
+| Variant | Type | SpliceAI | Pangolin | CADD | Tier |
+|---|---|---|---|---|---|
+| c.2657+120C>T | deep intronic | 0.540 | 0.510 | 17.9 | HIGH |
+| IVS8 5T (c.1210-34TG(12)T(5)) | deep intronic | 0.310 | 0.220 | 0.0 | MODERATE |
+
+**Known CF splice variants (positive controls)** — any real SpliceAI/Pangolin run
+should recover HIGH here: 2988+1G>A, 2789+5G>A, 2657+3A>G, 3849+10kb C>T,
+3272-26A>G, 1811+1.6kb A>G.
+
+Source: `outputs/A2_splice_DEMO.csv` (all rows `source=DEMO`).
+
+### B1 — cftr-varqc reproducible pipeline
+
+An nf-core-style Nextflow workflow packaging the A1 + A2 logic into portable,
+containerised, CI-tested infrastructure: takes a CFTR VCF, normalises to HGVS
+(MANE NM_000492.4), joins precomputed effect scores, cross-checks CFTR2 + ClinVar,
+and emits a MultiQC-style HTML report plus the discordance worklists. Last run:
+**6/6 processes succeeded, 0 failed**; 5 local modules; CI stub-run green on every push.
+
+```
+INPUT VCF
+   ├─ HGVS_NORMALIZE       bcftools norm + SnpEff HGVS (MANE NM_000492.4)
+   ├─ SCORE_JOIN_MISSENSE  join AlphaMissense/EVE/ESM1b/REVEL/PrimateAI
+   │      └─ CLINVAR_CHECK  → missense discordance worklist   (A1)
+   ├─ SPLICE_SCORE         join SpliceAI/Pangolin + CADD-Splice PHRED
+   │      └─ CLINVAR_CHECK  → splice discordance worklist      (A2)
+   └─ MULTIQC_REPORT       aggregate summaries → HTML + TSV
+```
+
+*The `cftr-varqc` pipeline itself is not included in this repository — this
+toolkit is the notebook companion. B1 is summarised here for context only.*
+
+---
+
 ## What the headline numbers in the summary report actually mean
 
 The earlier one-page summary reported `2496 / 413 / 403 / 10 / 4 / 1094`.
