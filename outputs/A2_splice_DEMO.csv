@@ -1,0 +1,10 @@
+variant_id,hgvs_c,legacy_name,variant_type,cftr2_class,clinvar_sig,chrom,pos,ref,alt,DS_AG,DS_AL,DS_DG,DS_DL,pangolin_score,cadd_phred,note,spliceai_ds_max,source,splice_tier
+7-117645994-C-T,c.3849+10246C>T,3849+10kb C>T,deep_intronic,CF-causing,Pathogenic,7,117645994,C,T,0.81,0.03,0.02,0.01,0.79,24.2,Creates cryptic exon 6b; 10.2 kb downstream of exon 22. Common in UK/N-European.,0.81,DEMO,HIGH
+7-117587799-G-A,c.2657+5G>A,2789+5G>A,splice_site,CF-causing,Pathogenic,7,117587799,G,A,0.02,0.01,0.91,0.05,0.88,27.8,IVS14b+5G>A; weakens intron-14b donor. 5th most common CF variant in some populations.,0.91,DEMO,HIGH
+7-117616814-A-G,c.3140-26A>G,3272-26A>G,deep_intronic,CF-causing,Pathogenic,7,117616814,A,G,0.76,0.02,0.03,0.01,0.73,22.4,New acceptor 26 bp upstream of exon 20. Common in Hispanic/Latino.,0.76,DEMO,HIGH
+7-117587800-T-C,c.2657+3A>G,2657+3A>G,splice_site,CF-causing,Pathogenic,7,117587800,T,C,0.02,0.01,0.88,0.04,0.85,26.1,Donor splice-site variant intron 14b. Less common than 2657+5.,0.88,DEMO,HIGH
+7-117548628-G-A,c.1210-34TG(12)T(5),IVS8_5T,deep_intronic,VUS,Uncertain significance,7,117548628,G,A,0.28,0.12,0.31,0.08,0.22,14.1,Poly-T tract (5T/7T/9T) affects exon 9 skipping. 5T alone insufficient; 5T+TG12 raises risk.,0.31,DEMO,MODERATE
+7-117592260-C-T,c.2988+1G>A,2988+1G>A,splice_site,CF-causing,Pathogenic,7,117592260,C,T,0.02,0.01,0.97,0.03,0.96,32.1,"Canonical +1 donor site, intron 16. Abolishes splicing.",0.97,DEMO,HIGH
+7-117559590-G-A,c.1680-886A>G,1811+1.6kbA>G,deep_intronic,CF-causing,Pathogenic,7,117559590,G,A,0.68,0.04,0.02,0.01,0.65,20.8,"New acceptor in intron 11, 1.6 kb from canonical donor.",0.68,DEMO,HIGH
+7-117548735-A-G,c.1210A>G,syn context,synonymous,VUS,Uncertain significance,7,117548735,A,G,0.18,0.05,0.14,0.06,0.12,11.3,Coding synonymous near exon-intron boundary; possible ESR disruption.,0.18,DEMO,LOW
+7-117588032-C-T,c.2657+120C>T,c.2657+120C>T,deep_intronic,VUS,Uncertain significance,7,117588032,C,T,0.54,0.03,0.02,0.01,0.51,17.9,TEACHING EXAMPLE (synthetic): illustrative deep-intronic VUS. Not a confirmed real observation.,0.54,DEMO,HIGH
