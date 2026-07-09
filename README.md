@@ -8,8 +8,8 @@ and A2 (splice discordance) analyses.
 
 Each tool gets its own Jupyter notebook explaining **what it is → what the score
 means → the threshold and why → how to get the real data**. A final pair of
-notebooks reproduces the combined worklists (07) and covers the methodology traps
-— circular reasoning and training-data leakage (08).
+notebooks reproduces the combined worklists (12) and covers the methodology traps
+— circular reasoning and training-data leakage (13).
 
 ---
 
@@ -23,12 +23,15 @@ tables* shipped so the notebooks run anywhere.
 |---|---|---|---|
 | gnomAD v4 (allele frequency) | **REAL** | ~2,466 missense / ~1,085 non-coding | 01 |
 | **AlphaMissense** | **REAL** | genome-wide (all possible CFTR missense) | 02 |
-| ClinVar | **REAL** | genome-wide | 05 |
-| **CFTR2** (30 Jan 2026) | **REAL** | ~2,097 variants / 780 missense keys | 05 |
-| CADD | **REAL** (live API) | per-variant | 06 |
-| EVE, ESM1b | **DEMO** | ~13 curated variants | 03 |
-| REVEL, PrimateAI | **DEMO** | ~13 curated variants | 04 |
-| SpliceAI, Pangolin | **DEMO** | 9 curated splice variants | 06 |
+| ClinVar | **REAL** | genome-wide | 07 |
+| **CFTR2** (30 Jan 2026) | **REAL** | ~2,097 variants / 780 missense keys | 08 |
+| CADD | **REAL** (live API) | per-variant | 11 |
+| EVE | **DEMO** | ~13 curated variants | 03 |
+| ESM1b | **DEMO** | ~13 curated variants | 04 |
+| REVEL | **DEMO** | ~13 curated variants | 05 |
+| PrimateAI | **DEMO** | ~13 curated variants | 06 |
+| SpliceAI | **DEMO** | 9 curated splice variants | 09 |
+| Pangolin | **DEMO** | 9 curated splice variants | 10 |
 
 **The only genome-wide real *predictor* here is AlphaMissense** — CFTR2 and
 ClinVar are real *truth sets* (databases), not predictors. Every DataFrame a
@@ -52,7 +55,7 @@ as part of a CFTR variant-interpretation collaboration.
 
 > **Read the numbers with the REAL/DEMO table above in mind.** The five-predictor
 > framing below is the *presentation*; the section right after this one
-> (“What the headline numbers actually mean”) and notebook 07 show that only
+> (“What the headline numbers actually mean”) and notebook 12 show that only
 > AlphaMissense is genome-wide-real and the other predictors are DEMO on ~13
 > variants. (CFTR2, one of the two truth sets, *is* now real — see above.)
 
@@ -89,11 +92,11 @@ candidates; 0 reverse discordance).
 | **Ser912Leu** | c.2735C>T | VUS | Uncertain | 0.805 | 0.742 | −6.20 | 0.782 | 0.751 | **3/5** |
 | **Val520Phe** | c.1558G>T | VUS | Uncertain | 0.778 | 0.718 | −6.00 | 0.755 | 0.731 | **3/5** |
 
-> With the **real CFTR2** loader now available, notebook 05 also computes a fully
+> With the **real CFTR2** loader (notebook 08) now available, you can compute a fully
 > real upgrade set: **256** variants that CFTR2 calls *"No interpretation available"*
 > or *"Varying clinical consequence"* while AlphaMissense scores ≥ 0.564.
 
-Source: `outputs/A1_upgrade_worklist_REAL.csv` (real AlphaMissense-vs-ClinVar upgrades) and the notebook 07 reconstruction.
+Source: `outputs/A1_upgrade_worklist_REAL.csv` (real AlphaMissense-vs-ClinVar upgrades) and the notebook 12 reconstruction.
 
 ### A2 — Splice-variant discordance
 
@@ -141,7 +144,7 @@ toolkit is the notebook companion. B1 is summarised here for context only.*
 ## What the headline numbers in the summary report actually mean
 
 The earlier one-page summary reported `2496 / 413 / 403 / 10 / 4 / 1094`.
-Notebook **07** reproduces each from the real data:
+Notebook **12** reproduces each from the real data:
 
 - **2,496** = ~2,466 real gnomAD missense variants + ~30 hand-curated variants.
 - **413 = 403 upgrade + 10 downgrade**, and it is a **two-source comparison —
@@ -152,7 +155,7 @@ Notebook **07** reproduces each from the real data:
 - **1,094** splice variants "scored" really means **9 scored** (with DEMO
   SpliceAI/Pangolin values); the other ~1,085 have no splice score at all.
 
-See notebook **08** for why "predictor disagrees with ClinVar" is only evidence
+See notebook **13** for why "predictor disagrees with ClinVar" is only evidence
 when the predictor never trained on ClinVar-lineage labels (REVEL did; the
 unsupervised tools did not).
 
@@ -165,15 +168,21 @@ unsupervised tools did not).
 | 00 | `notebooks/00_overview_and_setup.ipynb` | setup + the provenance map | — |
 | 01 | `notebooks/01_gnomad.ipynb` | gnomAD — population allele frequency as orthogonal evidence | REAL |
 | 02 | `notebooks/02_alphamissense.ipynb` | AlphaMissense — the one real genome-wide predictor | REAL |
-| 03 | `notebooks/03_eve_esm1b.ipynb` | EVE (evolutionary model) + ESM1b (protein language model) | demo |
-| 04 | `notebooks/04_revel_primateai.ipynb` | REVEL (supervised ensemble) + PrimateAI + **circularity** | demo |
-| 05 | `notebooks/05_clinvar_cftr2.ipynb` | ClinVar + CFTR2 — clinical & functional truth sets | **both REAL** |
-| 06 | `notebooks/06_splice_cadd.ipynb` | SpliceAI + Pangolin + CADD — splicing | CADD REAL |
-| 07 | `notebooks/07_integration_A1_A2.ipynb` | **reproduce the A1/A2 worklists honestly** | mixed |
-| 08 | `notebooks/08_decircularization_benchmark.ipynb` | **circular reasoning & training leakage** | — |
+| 03 | `notebooks/03_eve.ipynb` | EVE — unsupervised evolutionary model | demo |
+| 04 | `notebooks/04_esm1b.ipynb` | ESM1b — protein language model (backwards scale) | demo |
+| 05 | `notebooks/05_revel.ipynb` | REVEL — supervised ensemble + **circularity** | demo |
+| 06 | `notebooks/06_primateai.ipynb` | PrimateAI — semi-supervised | demo |
+| 07 | `notebooks/07_clinvar.ipynb` | ClinVar — crowd-sourced clinical truth set | REAL |
+| 08 | `notebooks/08_cftr2.ipynb` | CFTR2 — disease-specific functional truth set | **REAL** |
+| 09 | `notebooks/09_spliceai.ipynb` | SpliceAI — splice deltas | demo |
+| 10 | `notebooks/10_pangolin.ipynb` | Pangolin — independent splice model | demo |
+| 11 | `notebooks/11_cadd.ipynb` | CADD — real, live deleteriousness score | REAL (live) |
+| 12 | `notebooks/12_integration_A1_A2.ipynb` | **reproduce A1/A2 + cross-tool comparisons** | mixed |
+| 13 | `notebooks/13_decircularization_benchmark.ipynb` | **circular reasoning & training leakage** | — |
 
-Recommended order: 01 → 08. If you read only two: **07** (what the numbers are)
-and **08** (why to be careful).
+One tool per notebook (03–11); the integration notebook (12) is where tools are
+combined and compared. Recommended order: 01 → 13. If you read only two: **12**
+(what the numbers are, plus the tool-vs-tool comparisons) and **13** (why to be careful).
 
 ---
 
@@ -193,8 +202,8 @@ and **08** (why to be careful).
 ⚠ REVEL is the one to distrust when benchmarking against ClinVar (it may have
 trained on the same labels). Note ESM1b runs the *opposite* direction — more
 negative = more damaging. All thresholds are single-cut simplifications; the ACMG
-calibration (Pejaver 2022, PMID 36413997) uses *graded* thresholds — see notebook
-04/08.
+calibration (Pejaver 2022, PMID 36413997) uses *graded* thresholds — see notebooks
+05/13.
 
 ---
 
@@ -238,8 +247,8 @@ cftr_variant_toolkit/
 ├── build_cftr2.py         ← rebuilds data/cftr2_*.csv from a CFTR2 release xlsx
 ├── _nbutil.py             ← tiny helper used to build the notebooks
 ├── data/                  ← REAL CFTR2 variant list (cftr2_2026-01-30.csv)
-├── notebooks/             ← 00–08 (see table above)
-└── outputs/               ← results written by notebook 07
+├── notebooks/             ← 00–13 (see table above)
+└── outputs/               ← results written by notebook 12
 ```
 
 ## Known limitations (by design / honesty)
@@ -248,11 +257,11 @@ cftr_variant_toolkit/
   in real data (per-notebook instructions) before treating any of it as findings.
   (gnomAD, AlphaMissense, ClinVar, **CFTR2**, and CADD are already REAL.)
 - The 9 curated splice variants have hand-entered genomic coordinates; **only ~4
-  of 9 validate against the GRCh38 reference** (notebook 06 shows the live check).
+  of 9 validate against the GRCh38 reference** (notebook 11 shows the live check).
   One VUS (`c.2657+120C>T`) is an explicitly *synthetic* teaching example.
 - The A1 discordance list did **not** apply a training-cutoff temporal hold-out;
-  notebook 08 explains how to. Functional (CFTR2) truth is now available as a REAL
-  loader — notebook 05 cross-checks it against ClinVar over 654 shared missense variants.
+  notebook 13 explains how to. Functional (CFTR2) truth is now available as a REAL
+  loader — notebook 12 cross-checks it against ClinVar over 654 shared missense variants.
 
 ## References
 

@@ -83,7 +83,7 @@ CFTR_MANE_TX = "NM_000492.4"       # MANE Select transcript
 # ─────────────────────────────────────────────────────────────────────────────
 # NB: these are deliberately *simple* single cut-points taken from each tool's
 # calibration paper. Real ACMG use (esp. REVEL) applies GRADED thresholds for
-# different evidence strengths — see notebook 08 and Pejaver 2022.
+# different evidence strengths — see notebook 13 and Pejaver 2022.
 THRESHOLDS = {
     # higher score = more pathogenic
     "am":         {"path": 0.564, "benign": 0.340},   # AlphaMissense class cuts
@@ -103,7 +103,7 @@ HIGHER_IS_WORSE = {"am": True, "eve": True, "revel": True, "primate_ai": True,
                    "esm1b": False}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tool registry — metadata for the de-circularization / benchmark notebook (08)
+# Tool registry — metadata for the de-circularization / benchmark notebook (13)
 # ─────────────────────────────────────────────────────────────────────────────
 # `learning` is the key field for circularity reasoning:
 #   "unsupervised"  — trained only on sequences/MSAs, NEVER on clinical labels
@@ -198,7 +198,7 @@ def load_alphamissense() -> pd.DataFrame:
     predictor. It is *unsupervised* w.r.t. clinical labels — trained on protein
     sequences/structures plus weak population-frequency calibration, NOT on
     ClinVar pathogenic/benign labels. That is why it is a good tool to compare
-    *against* ClinVar without circular reasoning (see notebook 08).
+    *against* ClinVar without circular reasoning (see notebook 13).
 
     Score `am_pathogenicity` in [0,1]; AlphaMissense's own 3-class cut-points:
         >= 0.564  -> "likely_pathogenic"
@@ -235,7 +235,7 @@ def load_clinvar() -> pd.DataFrame:
     Conflicting) submitted by labs. It is the de-facto clinical "truth" set —
     but treat it with care: assertions vary in review status (star rating) and,
     crucially, some predictors were TRAINED on ClinVar-lineage labels, so
-    comparing those predictors to ClinVar is partly circular (notebook 08).
+    comparing those predictors to ClinVar is partly circular (notebook 13).
 
     Returns: protein_variant, clinvar_sig, review_status, clinvar_call, source.
     `clinvar_call` collapses the free-text significance to pathogenic/benign/
@@ -375,7 +375,7 @@ def load_revel(demo: bool = True) -> pd.DataFrame:
 
     ⚠ CIRCULARITY: REVEL's training labels share lineage with ClinVar/HGMD, so
     'REVEL disagrees with ClinVar' can partly reflect label leakage, not
-    independent evidence. Handle in notebook 08.
+    independent evidence. Handle in notebook 13.
 
     REAL: download the genome-wide REVEL table (sites.google.com/site/revelgenomics)
     and join on genomic coordinate (chr,pos,ref,alt).
