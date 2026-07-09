@@ -24,15 +24,23 @@ tables* shipped so the notebooks run anywhere.
 | gnomAD v4 (allele frequency) | **REAL** | ~2,466 missense / ~1,085 non-coding | 01 |
 | **AlphaMissense** | **REAL** | genome-wide (all possible CFTR missense) | 02 |
 | ClinVar | **REAL** | genome-wide | 05 |
+| **CFTR2** (30 Jan 2026) | **REAL** | ~2,097 variants / 780 missense keys | 05 |
 | CADD | **REAL** (live API) | per-variant | 06 |
 | EVE, ESM1b | **DEMO** | ~13 curated variants | 03 |
 | REVEL, PrimateAI | **DEMO** | ~13 curated variants | 04 |
-| CFTR2 class | **DEMO** | ~13 curated variants | 05 |
 | SpliceAI, Pangolin | **DEMO** | 9 curated splice variants | 06 |
 
-**The only genome-wide real predictor here is AlphaMissense.** Every DataFrame a
+**The only genome-wide real *predictor* here is AlphaMissense** — CFTR2 and
+ClinVar are real *truth sets* (databases), not predictors. Every DataFrame a
 loader returns carries a `source` column (`REAL` / `DEMO`) so the two are never
 confused. Never quote a DEMO value as a finding.
+
+> **CFTR2 is now REAL.** The full public CFTR2 variant list (30 January 2026
+> release, ~2,097 variants) ships at `data/cftr2_2026-01-30.csv`, built from the
+> cftr2.org download by `build_cftr2.py`. `tk.load_cftr2()` returns it with a
+> 1-letter `protein_variant` key for the ~780 simple-missense variants (779 of
+> which join to real AlphaMissense). Redistributed under cftr2.org's public
+> data-use terms — please cite CFTR2 if you use it.
 
 ---
 
@@ -45,7 +53,8 @@ as part of a CFTR variant-interpretation collaboration.
 > **Read the numbers with the REAL/DEMO table above in mind.** The five-predictor
 > framing below is the *presentation*; the section right after this one
 > (“What the headline numbers actually mean”) and notebook 07 show that only
-> AlphaMissense is genome-wide-real and the rest are DEMO on ~13 variants.
+> AlphaMissense is genome-wide-real and the other predictors are DEMO on ~13
+> variants. (CFTR2, one of the two truth sets, *is* now real — see above.)
 
 ### Dashboard
 
@@ -79,6 +88,10 @@ candidates; 0 reverse discordance).
 | **Gly970Asp** | c.2909G>A | VUS | Uncertain | 0.831 | 0.773 | −6.40 | 0.812 | 0.782 | **3/5** |
 | **Ser912Leu** | c.2735C>T | VUS | Uncertain | 0.805 | 0.742 | −6.20 | 0.782 | 0.751 | **3/5** |
 | **Val520Phe** | c.1558G>T | VUS | Uncertain | 0.778 | 0.718 | −6.00 | 0.755 | 0.731 | **3/5** |
+
+> With the **real CFTR2** loader now available, notebook 05 also computes a fully
+> real upgrade set: **256** variants that CFTR2 calls *"No interpretation available"*
+> or *"Varying clinical consequence"* while AlphaMissense scores ≥ 0.564.
 
 Source: `outputs/A1_upgrade_worklist_REAL.csv` (real AlphaMissense-vs-ClinVar upgrades) and the notebook 07 reconstruction.
 
@@ -154,7 +167,7 @@ unsupervised tools did not).
 | 02 | `notebooks/02_alphamissense.ipynb` | AlphaMissense — the one real genome-wide predictor | REAL |
 | 03 | `notebooks/03_eve_esm1b.ipynb` | EVE (evolutionary model) + ESM1b (protein language model) | demo |
 | 04 | `notebooks/04_revel_primateai.ipynb` | REVEL (supervised ensemble) + PrimateAI + **circularity** | demo |
-| 05 | `notebooks/05_clinvar_cftr2.ipynb` | ClinVar + CFTR2 — clinical & functional truth sets | ClinVar REAL |
+| 05 | `notebooks/05_clinvar_cftr2.ipynb` | ClinVar + CFTR2 — clinical & functional truth sets | **both REAL** |
 | 06 | `notebooks/06_splice_cadd.ipynb` | SpliceAI + Pangolin + CADD — splicing | CADD REAL |
 | 07 | `notebooks/07_integration_A1_A2.ipynb` | **reproduce the A1/A2 worklists honestly** | mixed |
 | 08 | `notebooks/08_decircularization_benchmark.ipynb` | **circular reasoning & training leakage** | — |
@@ -201,8 +214,9 @@ The `load_*` REAL loaders read cached extracts from the project's `_tmp_fetch/`
 directory (gnomAD, AlphaMissense-for-CFTR, ClinVar). Those large files are **not**
 committed. To regenerate them, each loader's docstring in `toolkit.py` gives the
 exact source and filter (gnomAD GraphQL API; tabix AlphaMissense to CFTR + filter
-UniProt P13569; filter ClinVar `variant_summary.txt.gz` to CFTR). The DEMO loaders
-and the live CADD API work with no cache.
+UniProt P13569; filter ClinVar `variant_summary.txt.gz` to CFTR). The DEMO loaders,
+the **real CFTR2 loader** (`data/cftr2_2026-01-30.csv` is committed), and the live
+CADD API all work with **no cache**.
 
 ### Run all notebooks headless
 
@@ -221,7 +235,9 @@ cftr_variant_toolkit/
 ├── requirements.txt
 ├── toolkit.py             ← the library: loaders (REAL+DEMO), thresholds,
 │                            tool registry, scoring helpers — all documented
+├── build_cftr2.py         ← rebuilds data/cftr2_*.csv from a CFTR2 release xlsx
 ├── _nbutil.py             ← tiny helper used to build the notebooks
+├── data/                  ← REAL CFTR2 variant list (cftr2_2026-01-30.csv)
 ├── notebooks/             ← 00–08 (see table above)
 └── outputs/               ← results written by notebook 07
 ```
@@ -230,11 +246,13 @@ cftr_variant_toolkit/
 
 - Four of five missense predictors and both splice predictors are **DEMO** — swap
   in real data (per-notebook instructions) before treating any of it as findings.
+  (gnomAD, AlphaMissense, ClinVar, **CFTR2**, and CADD are already REAL.)
 - The 9 curated splice variants have hand-entered genomic coordinates; **only ~4
   of 9 validate against the GRCh38 reference** (notebook 06 shows the live check).
   One VUS (`c.2657+120C>T`) is an explicitly *synthetic* teaching example.
-- The A1 discordance list did **not** apply a training-cutoff temporal hold-out or
-  validate against functional (CFTR2) truth — notebook 08 explains how to.
+- The A1 discordance list did **not** apply a training-cutoff temporal hold-out;
+  notebook 08 explains how to. Functional (CFTR2) truth is now available as a REAL
+  loader — notebook 05 cross-checks it against ClinVar over 654 shared missense variants.
 
 ## References
 

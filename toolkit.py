@@ -26,6 +26,8 @@ Real vs demo, as shipped
 ------------------------
     REAL (cached extracts of primary data):
         gnomAD v4 missense + non-coding, AlphaMissense (CFTR), ClinVar (CFTR)
+    REAL (shipped with the toolkit — small, public, static):
+        CFTR2 variant list (30 January 2026 release, ~2,097 variants)
     REAL (queried live per-call):
         CADD v1.7 REST API
     DEMO (hand-curated illustrative values — NOT real predictions):
@@ -66,6 +68,9 @@ PROJECT    = PKG_DIR.parents[1]
 CACHE_DIR  = PROJECT / "_tmp_fetch"
 OUT_DIR    = PKG_DIR / "outputs"
 OUT_DIR.mkdir(exist_ok=True)
+# REAL CFTR2 release, shipped with the toolkit (small, public, static). Built
+# from the official cftr2.org variant list by build_cftr2.py.
+CFTR2_CSV  = PKG_DIR / "data" / "cftr2_2026-01-30.csv"
 
 # CFTR locus, GRCh38. CFTR is on the minus strand of chromosome 7.
 CFTR_CHR, CFTR_START, CFTR_END = "7", 117_470_098, 117_667_108
@@ -393,19 +398,41 @@ def load_primateai(demo: bool = True) -> pd.DataFrame:
     return d[["protein_variant", "primate_ai_score", "source"]].dropna(subset=["primate_ai_score"])
 
 
-def load_cftr2_demo() -> pd.DataFrame:
-    """CFTR2 functional class for the curated variants (DEMO/embedded).
+def load_cftr2(demo: bool = False) -> pd.DataFrame:
+    """CFTR2 clinical-functional class per CFTR variant — REAL by default.
 
     CFTR2 (cftr2.org) is the clinical-functional reference for CF: it labels
-    variants as 'CF-causing', 'CF-causing (mild/varying)', 'Not CF-causing', or
-    unlisted, based on patient data + in-vitro CFTR function. Because CFTR2's
-    call includes FUNCTIONAL assay evidence, it is a useful ORTHOGONAL truth set
-    for benchmarking sequence predictors (notebook 08) — less circular than
-    ClinVar for supervised tools.
+    variants as 'CF-causing', 'Varying clinical consequence', 'Non CF-causing',
+    or 'No interpretation available', based on patient data + in-vitro CFTR
+    function. Because CFTR2's call includes FUNCTIONAL assay evidence, it is a
+    useful ORTHOGONAL truth set for benchmarking sequence predictors (notebook
+    08) — less circular than ClinVar for supervised tools.
 
-    Full CFTR2 requires accepting their data-use terms; this ships the small
-    embedded set used by the A1 notebook.
+    REAL (default): the full public CFTR2 variant list (30 January 2026 release,
+    ~2,097 variants) shipped at ``data/cftr2_2026-01-30.csv`` and built from the
+    official cftr2.org download by ``build_cftr2.py``. Returns a 1-letter
+    ``protein_variant`` key (e.g. 'G551D') for the ~780 simple-missense variants
+    so it joins onto the AlphaMissense/gnomAD tables; non-missense rows carry an
+    empty key but keep their legacy/cDNA names and genomic coordinates.
+
+    demo=True returns the tiny embedded curated set (source='DEMO') used by the
+    early teaching cells.
+
+    NOTE: CFTR2 data is redistributed here under CFTR2's public data-use terms —
+    please cite CFTR2 (cftr2.org) if you use it.
     """
+    if not demo and CFTR2_CSV.exists():
+        df = pd.read_csv(CFTR2_CSV, dtype={"protein_variant": "string"})
+        df["protein_variant"] = df["protein_variant"].fillna("")
+        df["source"] = "REAL"
+        return df
+    d = _demo_frame()
+    return d[["protein_variant", "cftr2_class", "source"]]
+
+
+def load_cftr2_demo() -> pd.DataFrame:
+    """Tiny embedded CFTR2 class table (DEMO). Prefer load_cftr2() for the full
+    REAL list; kept for the early teaching cells that predate the real loader."""
     d = _demo_frame()
     return d[["protein_variant", "cftr2_class", "source"]]
 
