@@ -1,4 +1,17 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-# large regenerable data cache lives outside the repo (see README)
+
+# ── DATA IS NOT PUBLISHED ──────────────────────────────────────────────────
+# This repo ships CODE + NOTEBOOKS + build scripts + manifest ONLY.
+# Every dataset (raw sources AND the derived per-CFTR score extracts) is
+# license-restricted / non-commercial and must NOT be redistributed here:
+#   SpliceAI  CC BY-NC 4.0 · REVEL non-commercial · PrimateAI/dbNSFP CC BY-NC-ND
+#   AlphaMissense CC BY-NC-SA · EVE per-publication · CFTR2 data-use terms
+# Regenerate them locally via build_*.py using your own downloads (see data_manifest.json).
+data/
+outputs/
+_tmp_fetch/
+
+# stray / non-CFTR working files
+*.parquet

@@ -1,0 +1,135 @@
+{
+  "_comment": "Provenance + reproducibility manifest for the toolkit's REAL data sources (plan item P2). 'committed' extracts are hashed here; run verify_data.py to detect drift. Large raw sources stay external (gitignored) and are documented but not hashed.",
+  "schema_version": 1,
+  "datasets": {
+    "eve_cftr": {
+      "notebook": "03",
+      "kind": "derived_extract",
+      "committed_file": "data/eve_cftr_2021-08.csv",
+      "sha256": "8f4f30dcbb21411d43d7ddc7f2cf531c44285fc54415eace00dc6ae35e9ccc01",
+      "rows": 26809,
+      "built_by": "build_eve.py",
+      "raw_source": "EVE_all_data.zip :: variant_files/CFTR_HUMAN.csv (external, not committed)",
+      "source": "https://evemodel.org (EVE, Frazer et al. 2021, PMID 34707284)",
+      "version": "EVE release 2021-08 (CFTR = UniProt P13569)",
+      "retrieval_date": "2026-07-12",
+      "license": "EVE / evemodel.org terms \u2014 CONFIRM before publishing this extract"
+    },
+    "cftr2": {
+      "notebook": "08",
+      "kind": "derived_extract",
+      "committed_file": "data/cftr2_2026-01-30.csv",
+      "sha256": "5267ea67db26e80052cf9a11da18179d8ab28e2025276ca1ebfb4a93f3ac294d",
+      "rows": 2097,
+      "built_by": "build_cftr2.py",
+      "raw_source": "docs/CFTR2_30January2026.xlsx (external, not committed)",
+      "source": "https://cftr2.org variant-list history tab",
+      "version": "CFTR2 release 2026-01-30",
+      "retrieval_date": "2026-07-01",
+      "license": "CFTR2 public data-use terms (cite CFTR2)"
+    },
+    "gnomad_missense": {
+      "notebook": "01",
+      "kind": "external_cache",
+      "cache_file": "_tmp_fetch/gnomad_cftr_missense.tsv",
+      "sha256": "7e2510b2df7657951ec27dbfd457dc773d14565f976b6a1ef0d0525c9607793f",
+      "rows": 2466,
+      "built_by": "fetch_scores.py::fetch_gnomad_cftr",
+      "source": "https://gnomad.broadinstitute.org/api (GraphQL)",
+      "query": "gene(gene_id: ENSG00000001626, reference_genome: GRCh38){ variants(dataset: gnomad_r4){ variant_id hgvsc hgvsp consequence exome{ac an af} genome{ac an af} } }",
+      "version": "gnomAD v4.1.1 (gnomad_r4)",
+      "note": "NO PASS/AC filter applied -> 2466 incl. AC0/VQSR-filtered; browser PASS+AC>0 = 2133 (see plan F1)."
+    },
+    "gnomad_noncoding": {
+      "notebook": "01/09",
+      "kind": "external_cache",
+      "cache_file": "_tmp_fetch/gnomad_cftr_noncoding.tsv",
+      "sha256": "1fe81c367d7090c00827cfacef3e2f8c4be1b0773775226be7b1b9ce0aeeb961",
+      "rows": 4717,
+      "built_by": "fetch_splice_scores.py",
+      "source": "https://gnomad.broadinstitute.org/api (GraphQL)",
+      "version": "gnomAD v4.1.1 (gnomad_r4)"
+    },
+    "alphamissense": {
+      "notebook": "02",
+      "kind": "external_cache",
+      "cache_file": "_tmp_fetch/alphamissense_cftr.tsv",
+      "sha256": "f1d55b48f14fbb4bed28b7fc9c06475cfb438bae24a4c95986e32d7e331e735f",
+      "built_by": "fetch_scores.py::fetch_alphamissense",
+      "source": "gs://dm_alphamissense/AlphaMissense_aa_substitutions.tsv.gz (bulk file, not an API)",
+      "version": "AlphaMissense (Cheng et al. 2023, PMID 37733863); filtered to UniProt P13569",
+      "license": "CONFIRM AlphaMissense data-use license",
+      "rows": 9721
+    },
+    "clinvar": {
+      "notebook": "07",
+      "kind": "external_cache",
+      "cache_file": "_tmp_fetch/clinvar_cftr.tsv",
+      "sha256": "988f636483afd7a61bd3095dee1e44a091b8ad04c57b150967f1170b2b80c84e",
+      "built_by": "fetch_scores.py::fetch_clinvar_cftr",
+      "source": "ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz",
+      "version": "ClinVar release date UNPINNED \u2014 record the exact release (plan R28)",
+      "note": "ClinVar updates ~weekly; the pinned release drives the A1 VUS set.",
+      "rows": 6101
+    },
+    "cadd": {
+      "notebook": "11",
+      "kind": "live_api",
+      "source": "https://cadd.gs.washington.edu/api/v1.0/GRCh38-v1.7/",
+      "version": "CADD v1.7 (GRCh38); Rentzsch et al. 2021, PMID 33618777",
+      "note": "Queried live per-variant; cache responses to make reproducible (plan R41)."
+    },
+    "spliceai": {
+      "notebook": "09",
+      "kind": "derived_extract",
+      "committed_file": "data/spliceai_cftr_2021_v1.3.csv",
+      "sha256": "03639a6e324f1d2b3ebee839c4c29db44a67f535aae83f909a2c080d35d4f145",
+      "rows": 566106,
+      "built_by": "build_spliceai.py",
+      "raw_source": "05_analysis/spliceai_scores.masked.snv.hg38.vcf.gz (~28.6 GB, external, not committed)",
+      "source": "Illumina BaseSpace share https://basespace.illumina.com/s/otSPW8hnhaZR ('Predicting splicing from primary sequence' / genome_scores_v1.3)",
+      "version": "SpliceAI precomputed v1.3, GRCh38, masked SNV; Gencode v24, distance 50bp",
+      "retrieval_date": "2026-07-12",
+      "license": "CC BY-NC 4.0 (Jaganathan et al. 2019, PMID 30661751) \u2014 attribute SpliceAI+Illumina; do NOT commit raw VCF; publishing derived extract needs NC notice (plan R43)"
+    },
+    "esm1b": {
+      "notebook": "04",
+      "kind": "derived_extract",
+      "committed_file": "data/esm1b_cftr.csv",
+      "built_by": "build_esm1b.py",
+      "raw_source": "data/ALL_hum_isoforms_ESM1b_LLR.zip::content/.../P13569_LLR.csv (external)",
+      "source": "HuggingFace Space ntranoslab/esm_variants (ALL_hum_isoforms_ESM1b_LLR.zip)",
+      "version": "ESM1b LLR, canonical UniProt P13569 (Brandes et al. 2023, PMID 37563329)",
+      "retrieval_date": "2026-07-13",
+      "license": "see ntranoslab esm-variants repo (MIT code); scores per publication",
+      "sha256": "236b39060d7989b783e943819db19c16cce38604bfe468335755cc3642dab84d",
+      "rows": 28120
+    },
+    "revel": {
+      "notebook": "05",
+      "kind": "derived_extract",
+      "committed_file": "data/revel_cftr_v1.3.csv",
+      "built_by": "build_revel.py",
+      "raw_source": "data/revel-v1.3_all_chromosomes.zip::revel_with_transcript_ids (6.5 GB, external)",
+      "source": "sites.google.com/site/revelgenomics (revel-v1.3_all_chromosomes.zip)",
+      "version": "REVEL v1.3, GRCh38 (Ioannidis et al. 2016, PMID 27666373)",
+      "retrieval_date": "2026-07-13",
+      "license": "free for NON-COMMERCIAL use (contact authors otherwise)",
+      "sha256": "b0edcc55d6fa9f6a30f0a8cf072805a546ff241569fba4c24ca14de840cde5b7",
+      "rows": 10826
+    },
+    "primateai": {
+      "notebook": "06",
+      "kind": "derived_extract",
+      "committed_file": "data/primateai_cftr.csv",
+      "built_by": "build_primateai.py",
+      "raw_source": "data/dbNSFP5.0a_...parquet (external)",
+      "source": "dbNSFP v5.0a (Zenodo 15131632); PrimateAI_score column",
+      "version": "PrimateAI (Sundaram et al. 2018, PMID 30038395) via dbNSFP; ClinVar-subset (~1,976, NOT saturation)",
+      "retrieval_date": "2026-07-13",
+      "license": "dbNSFP CC BY-NC-ND; PrimateAI non-commercial",
+      "sha256": "0c2318b953aff1a4e4acbeb63b9ca5f75f77fffdffc2d30e63a0c5d4d16f7419",
+      "rows": 1976
+    }
+  }
+}

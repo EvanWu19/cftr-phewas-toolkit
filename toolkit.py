@@ -27,15 +27,17 @@ Real vs demo, as shipped
     REAL (cached extracts of primary data):
         gnomAD v4 missense + non-coding, AlphaMissense (CFTR), ClinVar (CFTR)
     REAL (shipped with the toolkit — small, public, static):
-        CFTR2 variant list (30 January 2026 release, ~2,097 variants)
+        CFTR2 (~2,097), EVE (~26,809), ESM1b (~28,120 saturation),
+        REVEL (~10,826 saturation; non-commercial), PrimateAI (~1,976, dbNSFP
+        ClinVar subset; non-commercial), SpliceAI (~566k SNVs; CC BY-NC 4.0)
     REAL (queried live per-call):
         CADD v1.7 REST API
     DEMO (hand-curated illustrative values — NOT real predictions):
-        EVE, ESM1b, REVEL, PrimateAI, SpliceAI, Pangolin
+        Pangolin (9 curated splice variants only)
 
-    => The only genome-wide REAL predictor here is AlphaMissense. EVE/ESM1b/
-       REVEL/PrimateAI cover only the ~30 curated demo variants, and SpliceAI/
-       Pangolin only the 9 curated splice variants. See README.md.
+    => Only **Pangolin** remains DEMO. All missense predictors (AlphaMissense, EVE,
+       ESM1b, REVEL, PrimateAI) and SpliceAI are REAL. Coverage: EVE/ESM1b/REVEL/
+       SpliceAI ~saturation; PrimateAI = observed/ClinVar subset (~1,976). See README.
 
 References
 ----------
@@ -51,6 +53,7 @@ References
 """
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
@@ -64,13 +67,23 @@ import requests
 # toolkit.py lives in  <project>/05_analysis/cftr_variant_toolkit/
 # the shared download cache lives in  <project>/_tmp_fetch/
 PKG_DIR    = Path(__file__).resolve().parent
-PROJECT    = PKG_DIR.parents[1]
-CACHE_DIR  = PROJECT / "_tmp_fetch"
+# self-contained: the loader cache lives inside the toolkit (moves with it)
+CACHE_DIR  = PKG_DIR / "_tmp_fetch"
 OUT_DIR    = PKG_DIR / "outputs"
 OUT_DIR.mkdir(exist_ok=True)
 # REAL CFTR2 release, shipped with the toolkit (small, public, static). Built
 # from the official cftr2.org variant list by build_cftr2.py.
 CFTR2_CSV  = PKG_DIR / "data" / "cftr2_2026-01-30.csv"
+# REAL EVE CFTR extract (Frazer 2021 release), built by build_eve.py from
+# EVE_all_data.zip. Small; per-variant EVE scores keyed by protein_variant.
+EVE_CSV    = PKG_DIR / "data" / "eve_cftr_2021-08.csv"
+# REAL SpliceAI CFTR extract (Illumina precomputed v1.3, masked SNV), built by
+# build_spliceai.py from the 28.6 GB BaseSpace VCF. CC BY-NC 4.0.
+SPLICEAI_CSV = PKG_DIR / "data" / "spliceai_cftr_2021_v1.3.csv"
+# REAL ESM1b (full CFTR saturation), REVEL (saturation), PrimateAI (dbNSFP subset)
+ESM1B_CSV    = PKG_DIR / "data" / "esm1b_cftr.csv"
+REVEL_CSV    = PKG_DIR / "data" / "revel_cftr_v1.3.csv"
+PRIMATEAI_CSV = PKG_DIR / "data" / "primateai_cftr.csv"
 
 # CFTR locus, GRCh38. CFTR is on the minus strand of chromosome 7.
 CFTR_CHR, CFTR_START, CFTR_END = "7", 117_470_098, 117_667_108
@@ -333,7 +346,35 @@ def _demo_frame() -> pd.DataFrame:
     return df
 
 
-def load_eve(demo: bool = True) -> pd.DataFrame:
+_AA3TO1 = {
+    "Ala": "A", "Arg": "R", "Asn": "N", "Asp": "D", "Cys": "C", "Gln": "Q",
+    "Glu": "E", "Gly": "G", "His": "H", "Ile": "I", "Leu": "L", "Lys": "K",
+    "Met": "M", "Phe": "F", "Pro": "P", "Ser": "S", "Thr": "T", "Trp": "W",
+    "Tyr": "Y", "Val": "V",
+}
+_THREE_RE = re.compile(r"^([A-Z][a-z]{2})(\d+)([A-Z][a-z]{2})$")
+
+
+def three_to_one(protein_variant: str) -> str:
+    """Normalise a missense key to the 1-letter form used by the REAL tables.
+
+    'Tyr161Cys' -> 'Y161C'. Already-1-letter keys (e.g. 'G551D') and anything that
+    isn't a simple 3-letter missense are returned unchanged. Use this to join the
+    curated DEMO variants (some keyed 3-letter) onto REAL EVE/AlphaMissense/ClinVar,
+    which use 1-letter keys — the "join hygiene" issue notebooks 12/13 discuss.
+    """
+    if not isinstance(protein_variant, str):
+        return protein_variant
+    m = _THREE_RE.match(protein_variant.strip())
+    if not m:
+        return protein_variant
+    wt, pos, mt = m.group(1), m.group(2), m.group(3)
+    if wt in _AA3TO1 and mt in _AA3TO1:
+        return f"{_AA3TO1[wt]}{pos}{_AA3TO1[mt]}"
+    return protein_variant
+
+
+def load_eve(demo: bool = False) -> pd.DataFrame:
     """EVE score per CFTR missense variant.
 
     EVE (Evolutionary model of Variant Effect, Frazer 2021) is an UNSUPERVISED
@@ -342,31 +383,43 @@ def load_eve(demo: bool = True) -> pd.DataFrame:
     Score in [0,1]; >= 0.5 ~ pathogenic. No clinical labels used → low
     circularity vs ClinVar.
 
-    demo=True (default) returns the curated DEMO table (source='DEMO').
-    REAL: download CFTR (P13569) scores from https://evemodel.org (per-protein
-    CSV) and join on protein_variant; set demo=False and point EVE_CSV at it.
+    REAL by default: returns the CFTR EVE extract (`data/eve_cftr_2021-08.csv`,
+    ~26,809 scored variants) built by build_eve.py from the EVE release
+    (evemodel.org, CFTR = UniProt P13569); keyed by the 1-letter protein_variant.
+    Columns: protein_variant, eve_score, eve_class, source. Pass demo=True for the
+    tiny curated teaching table (source='DEMO').
     """
+    if not demo and EVE_CSV.exists():
+        df = pd.read_csv(EVE_CSV, dtype={"protein_variant": "string"})
+        df["source"] = "REAL"
+        return df[["protein_variant", "eve_score", "eve_class", "source"]]
     d = _demo_frame()
     return d[["protein_variant", "eve_score", "source"]].dropna(subset=["eve_score"])
 
 
-def load_esm1b(demo: bool = True) -> pd.DataFrame:
-    """ESM1b LLR per CFTR missense variant.
+def load_esm1b(demo: bool = False) -> pd.DataFrame:
+    """ESM1b LLR per CFTR missense variant — REAL by default.
 
     ESM1b (Brandes 2023) is a protein LANGUAGE model. It scores a variant by the
     log-likelihood ratio (LLR) of the mutant vs wild-type amino acid — a more
     NEGATIVE LLR means the model finds the mutation more surprising/damaging.
     Cut: LLR <= -7.5 ~ pathogenic. Unsupervised → low circularity.
 
-    REAL: bulk ESM1b variant-effect files are published per-protein (Brandes
-    2023 supplement / HuggingFace); join on protein_variant.
+    REAL (default): full CFTR **saturation** LLR (~28,120 variants, all 1,480
+    residues) from `data/esm1b_cftr.csv`, built by build_esm1b.py from the
+    ntranoslab esm_variants release (canonical UniProt **P13569**). protein_variant
+    keyed. demo=True returns the tiny curated table.
     """
+    if not demo and ESM1B_CSV.exists():
+        df = pd.read_csv(ESM1B_CSV, dtype={"protein_variant": "string"})
+        df["source"] = "REAL"
+        return df[["protein_variant", "esm1b_score", "source"]]
     d = _demo_frame()
     return d[["protein_variant", "esm1b_score", "source"]].dropna(subset=["esm1b_score"])
 
 
-def load_revel(demo: bool = True) -> pd.DataFrame:
-    """REVEL score per CFTR missense variant.
+def load_revel(demo: bool = False) -> pd.DataFrame:
+    """REVEL score per CFTR missense variant — REAL by default.
 
     REVEL (Ioannidis 2016) is a SUPERVISED random-forest ENSEMBLE of 13 other
     predictors, trained on curated pathogenic/benign variants. Score in [0,1];
@@ -377,23 +430,41 @@ def load_revel(demo: bool = True) -> pd.DataFrame:
     'REVEL disagrees with ClinVar' can partly reflect label leakage, not
     independent evidence. Handle in notebook 13.
 
-    REAL: download the genome-wide REVEL table (sites.google.com/site/revelgenomics)
-    and join on genomic coordinate (chr,pos,ref,alt).
+    REAL (default): genome-wide REVEL v1.3 for CFTR (~10,826 variants) from
+    `data/revel_cftr_v1.3.csv`, built by build_revel.py. **Keyed by genomic
+    coordinate** (chrom,pos,ref,alt) — the REVEL table has no protein position, so
+    join it onto observed variants by coordinate (mind CFTR's minus strand), not
+    protein_variant. Non-commercial license. demo=True returns the curated table.
     """
+    if not demo and REVEL_CSV.exists():
+        df = pd.read_csv(REVEL_CSV)
+        df["chrom"] = df["chrom"].astype(str)
+        # REVEL can list >1 transcript row per genomic site; keep the max per site
+        df = (df.sort_values("revel_score", ascending=False)
+                .drop_duplicates(["chrom", "pos", "ref", "alt"]).reset_index(drop=True))
+        df["source"] = "REAL"
+        return df
     d = _demo_frame()
     return d[["protein_variant", "revel_score", "source"]].dropna(subset=["revel_score"])
 
 
-def load_primateai(demo: bool = True) -> pd.DataFrame:
-    """PrimateAI score per CFTR missense variant.
+def load_primateai(demo: bool = False) -> pd.DataFrame:
+    """PrimateAI score per CFTR missense variant — REAL by default.
 
     PrimateAI (Sundaram 2018) is a deep net trained SEMI-supervised on common
     human & non-human primate missense variants as a proxy for benignity.
     Score in [0,1]; >= 0.803 ~ pathogenic. Medium circularity.
 
-    REAL: PrimateAI-3D / PrimateAI scores are distributed by Illumina; join on
-    genomic coordinate.
+    REAL (default): PrimateAI for CFTR from `data/primateai_cftr.csv`, built by
+    build_primateai.py from the **dbNSFP v5.0a** parquet. ⚠ COVERAGE: dbNSFP's
+    ClinVar-re-annotated subset, so ~1,976 observed CFTR variants (NOT saturation).
+    protein_variant + coordinate keyed. Non-commercial. demo=True returns the
+    curated table.
     """
+    if not demo and PRIMATEAI_CSV.exists():
+        df = pd.read_csv(PRIMATEAI_CSV, dtype={"protein_variant": "string"})
+        df["source"] = "REAL"
+        return df
     d = _demo_frame()
     return d[["protein_variant", "primate_ai_score", "source"]].dropna(subset=["primate_ai_score"])
 
@@ -500,6 +571,30 @@ def load_splice_demo() -> pd.DataFrame:
     df["spliceai_ds_max"] = df[["DS_AG", "DS_AL", "DS_DG", "DS_DL"]].max(axis=1)
     df["source"] = "DEMO"
     return df
+
+
+def load_spliceai(demo: bool = False) -> pd.DataFrame:
+    """SpliceAI delta scores for CFTR — REAL by default.
+
+    REAL (default): the precomputed Illumina **SpliceAI v1.3** masked-SNV scores
+    for the whole CFTR region (`data/spliceai_cftr_2021_v1.3.csv`, ~566k SNVs),
+    built by build_spliceai.py. Keyed by genomic coordinate (chrom,pos,ref,alt);
+    columns DS_AG/DS_AL/DS_DG/DS_DL and spliceai_ds_max (>= 0.5 high, >= 0.2
+    moderate). Join onto observed variants (e.g. gnomAD non-coding) by coordinate
+    to build the real A2 splice worklist.
+
+    demo=True returns the 9 curated variants (load_splice_demo) — note those
+    hand-entered coordinates mostly do NOT reproduce against real precomputed
+    SpliceAI (coordinate errors + masked deep-intronic coverage limits).
+
+    LICENSE: SpliceAI scores are CC BY-NC 4.0 (Jaganathan et al. 2019, PMID
+    30661751). The 28.6 GB source VCF stays external; cite SpliceAI + Illumina.
+    """
+    if not demo and SPLICEAI_CSV.exists():
+        df = pd.read_csv(SPLICEAI_CSV)
+        df["source"] = "REAL"
+        return df
+    return load_splice_demo()
 
 
 # =============================================================================

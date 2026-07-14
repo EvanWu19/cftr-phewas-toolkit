@@ -14,7 +14,7 @@ import openpyxl
 import pandas as pd
 
 PKG = Path(__file__).resolve().parent
-XLSX = PKG.parents[1] / "docs" / "CFTR2_30January2026.xlsx"
+XLSX = PKG / "data" / "CFTR2_30January2026.xlsx"
 OUT = PKG / "data" / "cftr2_2026-01-30.csv"
 OUT.parent.mkdir(exist_ok=True)
 
