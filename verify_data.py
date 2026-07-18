@@ -1,10 +1,14 @@
-"""Verify committed REAL data extracts against data_manifest.json (plan item P2).
+"""Verify your locally-built REAL data extracts against data_manifest.json.
+
+NOTE: nothing in data/ ships in the repo (it is gitignored). These extracts only
+exist after you build them locally (see data/README.md); this script checks that
+your local build matches the manifest's recorded sha256/rows.
 
 Usage:
-    python verify_data.py            # check committed extracts' sha256 vs manifest
-    python verify_data.py --update   # recompute + write hashes/rows for committed extracts
+    python verify_data.py            # check local extracts' sha256 vs manifest
+    python verify_data.py --update   # recompute + write hashes/rows for local extracts
 
-Only 'derived_extract' entries (the small committed CSVs) are hashed. External
+Only 'derived_extract' entries (the small locally-built CSVs) are hashed. External
 caches (_tmp_fetch/*) and live APIs are documented in the manifest but not hashed
 here — they are reproduced via their build scripts / endpoints.
 """
@@ -40,9 +44,9 @@ def main() -> int:
     for name, d in datasets.items():
         if d.get("kind") != "derived_extract":
             continue
-        fp = PKG / d["committed_file"]
+        fp = PKG / d["local_file"]
         if not fp.exists():
-            print(f"MISSING  {name}: {d['committed_file']}")
+            print(f"MISSING  {name}: {d['local_file']} (build it locally — see data/README.md)")
             problems += 1
             continue
         digest, n = sha256(fp), rows(fp)
@@ -53,7 +57,7 @@ def main() -> int:
             ok_hash = digest == d.get("sha256")
             ok_rows = n == d.get("rows")
             if ok_hash and ok_rows:
-                print(f"OK       {name}: {d['committed_file']} (rows={n})")
+                print(f"OK       {name}: {d['local_file']} (rows={n})")
             else:
                 print(f"DRIFT    {name}: hash {'ok' if ok_hash else 'CHANGED'}, "
                       f"rows {n} vs manifest {d.get('rows')}")
@@ -64,7 +68,7 @@ def main() -> int:
         print("manifest updated.")
         return 0
 
-    print(f"\n{'all committed extracts verified.' if problems == 0 else str(problems) + ' problem(s).'}")
+    print(f"\n{'all local extracts verified.' if problems == 0 else str(problems) + ' problem(s).'}")
     return 1 if problems else 0
 
 

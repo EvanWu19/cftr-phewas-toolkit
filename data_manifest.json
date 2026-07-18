@@ -1,11 +1,12 @@
 {
-  "_comment": "Provenance + reproducibility manifest for the toolkit's REAL data sources (plan item P2). 'committed' extracts are hashed here; run verify_data.py to detect drift. Large raw sources stay external (gitignored) and are documented but not hashed.",
+  "_comment": "Provenance + reproducibility manifest for the toolkit's REAL data sources. IMPORTANT: nothing here ships in the repo — all of data/, outputs/ and _tmp_fetch/ are gitignored. 'local_file' is where an extract lives AFTER you build it locally (see data/README.md); it is NOT committed. derived_extract entries carry a sha256/rows so verify_data.py can detect drift in your local build. Large raw sources and external caches (_tmp_fetch/*) are documented but not hashed.",
+  "ships_in_repo": false,
   "schema_version": 1,
   "datasets": {
     "eve_cftr": {
       "notebook": "03",
       "kind": "derived_extract",
-      "committed_file": "data/eve_cftr_2021-08.csv",
+      "local_file": "data/eve_cftr_2021-08.csv",
       "sha256": "8f4f30dcbb21411d43d7ddc7f2cf531c44285fc54415eace00dc6ae35e9ccc01",
       "rows": 26809,
       "built_by": "build_eve.py",
@@ -18,7 +19,7 @@
     "cftr2": {
       "notebook": "08",
       "kind": "derived_extract",
-      "committed_file": "data/cftr2_2026-01-30.csv",
+      "local_file": "data/cftr2_2026-01-30.csv",
       "sha256": "5267ea67db26e80052cf9a11da18179d8ab28e2025276ca1ebfb4a93f3ac294d",
       "rows": 2097,
       "built_by": "build_cftr2.py",
@@ -82,7 +83,7 @@
     "spliceai": {
       "notebook": "09",
       "kind": "derived_extract",
-      "committed_file": "data/spliceai_cftr_2021_v1.3.csv",
+      "local_file": "data/spliceai_cftr_2021_v1.3.csv",
       "sha256": "03639a6e324f1d2b3ebee839c4c29db44a67f535aae83f909a2c080d35d4f145",
       "rows": 566106,
       "built_by": "build_spliceai.py",
@@ -95,7 +96,7 @@
     "esm1b": {
       "notebook": "04",
       "kind": "derived_extract",
-      "committed_file": "data/esm1b_cftr.csv",
+      "local_file": "data/esm1b_cftr.csv",
       "built_by": "build_esm1b.py",
       "raw_source": "data/ALL_hum_isoforms_ESM1b_LLR.zip::content/.../P13569_LLR.csv (external)",
       "source": "HuggingFace Space ntranoslab/esm_variants (ALL_hum_isoforms_ESM1b_LLR.zip)",
@@ -108,7 +109,7 @@
     "revel": {
       "notebook": "05",
       "kind": "derived_extract",
-      "committed_file": "data/revel_cftr_v1.3.csv",
+      "local_file": "data/revel_cftr_v1.3.csv",
       "built_by": "build_revel.py",
       "raw_source": "data/revel-v1.3_all_chromosomes.zip::revel_with_transcript_ids (6.5 GB, external)",
       "source": "sites.google.com/site/revelgenomics (revel-v1.3_all_chromosomes.zip)",
@@ -121,7 +122,7 @@
     "primateai": {
       "notebook": "06",
       "kind": "derived_extract",
-      "committed_file": "data/primateai_cftr.csv",
+      "local_file": "data/primateai_cftr.csv",
       "built_by": "build_primateai.py",
       "raw_source": "data/dbNSFP5.0a_...parquet (external)",
       "source": "dbNSFP v5.0a (Zenodo 15131632); PrimateAI_score column",

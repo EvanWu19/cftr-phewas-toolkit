@@ -9,7 +9,9 @@ __pycache__/
 #   SpliceAI  CC BY-NC 4.0 · REVEL non-commercial · PrimateAI/dbNSFP CC BY-NC-ND
 #   AlphaMissense CC BY-NC-SA · EVE per-publication · CFTR2 data-use terms
 # Regenerate them locally via build_*.py using your own downloads (see data_manifest.json).
-data/
+# NB: data/* (not data/) so the provenance guide data/README.md can be re-included below.
+data/*
+!data/README.md
 outputs/
 _tmp_fetch/
 
