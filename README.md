@@ -412,9 +412,9 @@ cftr_variant_toolkit/
   but `build_pangolin.py` runs the real model locally (a curated run stays DEMO by
   scope). Build the extracts before treating any output as a finding, and check the
   `source` column.
-- The 9 curated splice variants have hand-entered genomic coordinates; **only ~4
-  of 9 validate against the GRCh38 reference** (notebook 11 shows the live check).
-  One VUS (`c.2657+120C>T`) is an explicitly *synthetic* teaching example.
+- The 9 curated splice variants have hand-entered genomic coordinates; **several do
+  not match the GRCh38 reference** (notebook 09 shows why they don't reproduce against
+  real SpliceAI). One VUS (`c.2657+120C>T`) is an explicitly *synthetic* teaching example.
 - **Reproducibility caveats:** ClinVar's release is **unpinned** (it updates ~weekly
   and drives the A1 VUS/discordance counts — record the exact release you use), and
   CADD is a **live API** (cache responses, or a rerun can change/fail on network
