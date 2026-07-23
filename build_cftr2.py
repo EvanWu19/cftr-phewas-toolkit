@@ -1,12 +1,24 @@
 """Build a REAL, committable CFTR2 extract from the official CFTR2 release xlsx.
 
-Source: docs/CFTR2_30January2026.xlsx  (public CFTR2 variant list, cftr2.org).
+Source: data/CFTR2_30January2026.xlsx  (public CFTR2 variant list, cftr2.org).
 Output: data/cftr2_2026-01-30.csv
 
-Keeps only variant-level, public columns (no patient-level data). Derives a
-1-letter missense key (`protein_variant`, e.g. 'G551D') from the protein name so
-CFTR2 class can be joined onto the AlphaMissense/gnomAD missense tables.
-Re-run this only when a newer CFTR2 release is dropped into docs/.
+Keeps only variant-level, public columns (no patient-level data).
+
+KEYS — the precise identifier is `cdna_name` (HGVS c., e.g. 'c.1652G>A'), which
+covers EVERY variant type (missense, nonsense, splice, indel, synonymous). We also
+derive a *1-letter* `protein_variant` key (e.g. 'G551D') from the protein name, but
+ONLY as a join convenience for the protein-keyed missense predictors (AlphaMissense/
+EVE/ESM1b). It exists for just the simple single-residue missense variants (~780 of
+~2,097); every other class (deletions incl. F508del, nonsense like G542X, splice,
+etc.) carries an empty protein_variant and must be joined by cdna_name or the
+authoritative genomic coordinates (grch38_* below) instead.
+
+REFERENCE BUILD — not assumed: the xlsx header states 'CFTR reference transcript:
+NM_000492.4', and the 'Genomic coordinates' sheet ships explicit grch38_* columns
+(alongside grch37_*). We read + assert the transcript and record the official header
+counts as provenance rather than discarding them. Re-run only when a newer CFTR2
+release is dropped into data/.
 """
 from pathlib import Path
 import re
@@ -42,6 +54,28 @@ def missense_key(protein_name: str):
 
 wb = openpyxl.load_workbook(XLSX, read_only=True, data_only=True)
 ws = wb["CFTR2 variants by legacy name"]
+
+# --- Provenance from the header rows (1-12), which the data loop below skips. ---
+# Capture the release date, official counts, and (critically) the reference
+# transcript, so the build documents its own basis instead of assuming GRCh38/MANE.
+header_meta = {}
+EXPECT_TX = "NM_000492.4"
+for r in ws.iter_rows(min_row=1, max_row=12, values_only=True):
+    cell = str(r[0]).strip() if r[0] is not None else ""
+    if ":" in cell:
+        k, v = cell.split(":", 1)
+        header_meta[k.strip()] = v.strip()
+tx = header_meta.get("CFTR reference transcript", "")
+assert EXPECT_TX in tx, (
+    f"CFTR2 header transcript is {tx!r}, expected {EXPECT_TX}; the extract's "
+    "genomic coordinates + MANE assumptions may no longer hold — check the release.")
+print("CFTR2 header provenance:")
+for k in ("Date", "Number of patients in CFTR2", "Number of variants reported in CFTR2",
+          "Number of variants with interpretations", "CFTR reference transcript"):
+    if k in header_meta:
+        print(f"  {k}: {header_meta[k]}")
+official_reported = header_meta.get("Number of variants reported in CFTR2", "?")
+
 rows = []
 for r in ws.iter_rows(min_row=13, values_only=True):
     if r[0] is None:
@@ -69,5 +103,9 @@ df = df.merge(g, on="cdna_name", how="left")
 
 df.to_csv(OUT, index=False)
 print("wrote", OUT.relative_to(PKG), "rows:", len(df))
-print("with a 1-letter missense key:", (df["protein_variant"] != "").sum())
+print("with a 1-letter missense key:", (df["protein_variant"] != "").sum(),
+      f"(of {len(df)}; the rest are non-missense — join by cdna_name/genomic coords)")
+# Reconcile our row count against CFTR2's own header count (they can differ by a few:
+# e.g. rows with alternative-allele notation). Surface it rather than shipping silently.
+print(f"row-count check: extracted {len(df)} vs CFTR2 header 'variants reported' = {official_reported}")
 print("class counts:\n", df["cftr2_class"].value_counts(dropna=False).to_string())

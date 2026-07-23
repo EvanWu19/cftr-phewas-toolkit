@@ -4,10 +4,16 @@ Source: data/dbNSFP5.0a_variant.clin_var_re-annot_pdb_variants_plddt_rsa.parquet
         (dbNSFP v5.0a, ClinVar-re-annotated subset; bundles PrimateAI_score etc.)
 Output: data/primateai_cftr.csv
 
-⚠️ COVERAGE: this dbNSFP parquet is the ClinVar-re-annotated subset, so PrimateAI
-covers only the observed/clinically-relevant CFTR missense variants (~1,271 of
-gnomAD's 2,466), NOT genome-wide saturation. Honestly labelled as such.
-PrimateAI = original PrimateAI (Sundaram 2018); dbNSFP is CC BY-NC-ND (non-commercial).
+COVERAGE: this dbNSFP parquet is the ClinVar-re-annotated subset, so PrimateAI
+covers ~1,976 CFTR missense variants in the extract (of which ~1,271 overlap gnomAD's
+observed 2,466), NOT genome-wide saturation. Honestly labelled as such.
+
+PROVENANCE: the original PrimateAI (Sundaram 2018 — semi-supervised on common human +
+6-primate-species variants as a benign proxy, ~2017 data) shipped as precomputed
+genome-wide scores from Illumina (BaseSpace/Zenodo), which are gated/large. dbNSFP
+v5.0a bundles the PrimateAI_score column, so we pull it from that (smaller, accessible)
+parquet instead — trading genome-wide coverage for convenience. dbNSFP is CC BY-NC-ND
+(non-commercial); PrimateAI non-commercial.
 """
 from pathlib import Path
 import pyarrow.parquet as pq

@@ -78,7 +78,19 @@
       "kind": "live_api",
       "source": "https://cadd.gs.washington.edu/api/v1.0/GRCh38-v1.7/",
       "version": "CADD v1.7 (GRCh38); Rentzsch et al. 2021, PMID 33618777",
-      "note": "Queried live per-variant; cache responses to make reproducible (plan R41)."
+      "note": "Queried live per-variant; cache responses to make reproducible. NOT trained on clinical labels (proxy: observed-vs-simulated); CADD-Splice v1.7 folds in SpliceAI+MMSplice (indirect circularity). Anchor reproducibility on the version, not a training date."
+    },
+    "pangolin": {
+      "notebook": "10",
+      "kind": "model_run",
+      "local_file": "data/pangolin_cftr.csv",
+      "built_by": "build_pangolin.py",
+      "raw_source": "Pangolin model weights bundled in the pip package + data/cftr_region_grch38.fa (~215 kb CFTR region, Ensembl GRCh38); no whole-genome download",
+      "source": "https://github.com/tkzeng/Pangolin (Zeng & Li 2022)",
+      "version": "Pangolin (Zeng & Li 2022, Genome Biol 23:103, PMID 35449021)",
+      "retrieval_date": "2026-07-18",
+      "license": "Pangolin non-commercial; cite Zeng & Li 2022",
+      "note": "REAL model output. A small curated run (classic CF splice alleles, correct CFTR2 coords) is labelled source=DEMO by coverage/scope; validated against real SpliceAI (e.g. c.2988+1G>A: Pangolin 0.86 vs SpliceAI 0.99). Promote to REAL over a real-scale target set."
     },
     "spliceai": {
       "notebook": "09",

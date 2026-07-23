@@ -6,8 +6,17 @@ Output: data/eve_cftr_2021-08.csv  (small, per-variant EVE scores for CFTR)
 
 Derives a 1-letter ``protein_variant`` key (e.g. 'M1A') = wt_aa + position + mt_aa,
 matching the AlphaMissense / gnomAD / CFTR2 missense key, and keeps the EVE score
-(EVE_scores_ASM, 0-1, higher = more pathogenic) plus EVE's own class call.
-Re-run only when a newer EVE release is dropped in.
+(EVE_scores_ASM, 0-1, higher = more pathogenic) plus EVE's own class call
+(EVE_classes_75_pct_retained_ASM — the cut that leaves the least-confident 25% as
+"Uncertain"). Re-run only when a newer EVE release is dropped in.
+
+COMPLETENESS: we read the ENTIRE ``variant_files/CFTR_HUMAN.csv`` member (EVE's full
+per-gene file) and drop only rows EVE did not score (NaN EVE_scores_ASM). EVE is NOT
+full saturation — it scores only alignable positions (limited by multiple-sequence-
+alignment depth), so ~26,809 variants cover a subset of the 1,480 x 19 possible. The
+source CSV has ~42 columns (evolutionary_index, uncertainty, EVE classes at many
+retention thresholds, a BPU model, ClinVar/frequency/ACMG flags); we keep 5. The zip
+also ships MSAs/ and ROC/PRC curve images. See the EVE docs for full column meanings.
 
 NOTE: EVE data is redistributed under EVE's (evemodel.org) terms — confirm the
 license before committing this extract to a public repo. The 9.6 GB source zip

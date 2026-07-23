@@ -4,10 +4,17 @@ Source: data/ALL_hum_isoforms_ESM1b_LLR.zip :: content/.../P13569_LLR.csv
         (ESM1b LLR matrix for CFTR canonical isoform; Brandes et al. 2023).
 Output: data/esm1b_cftr.csv  (per-variant ESM1b LLR, protein_variant keyed)
 
+WHERE THE FILE COMES FROM: the zip is the ntranoslab **esm_variants** release
+(HuggingFace Space `ntranoslab/esm_variants`, github.com/ntranoslab/esm-variants) —
+one `<UniProt>_LLR.csv` per human protein isoform (~42,000 files). **P13569 is the
+UniProt accession for human CFTR**, so the CFTR matrix is `P13569_LLR.csv` — that is
+how you know P13569 == CFTR (not a guess).
+
 The source file is an LLR matrix: columns "<wt> <pos>" (e.g. 'M 1'), rows = mutant
 amino acid, cell = log-likelihood ratio (more NEGATIVE = more damaging). We melt it
 to long form with a 1-letter protein_variant key (e.g. 'M1A'), matching the
-AlphaMissense/EVE/CFTR2 key. Canonical P13569 (per plan R14).
+AlphaMissense/EVE/CFTR2 key. Unlike EVE, ESM1b is full saturation (all 1,480
+residues x 19 substitutions).
 """
 from pathlib import Path
 import zipfile
