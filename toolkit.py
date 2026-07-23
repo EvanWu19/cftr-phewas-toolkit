@@ -697,6 +697,11 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 # follow the SAME variants through all the per-tool notebooks (A1 -> 01-08,
 # A2 -> 09-11). Uses REAL extracts where they exist; missing extracts -> NaN.
 
+# The shared A1 panel membership (famous CFTR missense variants, 1-letter keys) —
+# single source of truth for WHICH variants; each notebook shows its own SCORING.
+A1_PANEL_VARIANTS = [three_to_one(v[0]) for v in _DEMO_MISSENSE]
+
+
 def a1_panel() -> pd.DataFrame:
     """The curated A1 (missense) panel scored by every missense tool — REAL.
 
