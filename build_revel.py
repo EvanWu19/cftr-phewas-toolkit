@@ -4,10 +4,19 @@ Source: data/revel-v1.3_all_chromosomes.zip :: revel_with_transcript_ids
         (one 6.5 GB CSV; Ioannidis et al. 2016; free for non-commercial use).
 Output: data/revel_cftr_v1.3.csv
 
+NOTE ON THE ODD FILENAME: inside the zip the data is a single ~6.5 GB CSV literally
+named `revel_with_transcript_ids` — with **no `.csv` extension**. That is just how
+the REVEL authors package it (sites.google.com/site/revelgenomics); it is not a
+corrupt or unknown file. It has a normal CSV header/rows.
+
 REVEL is keyed by genomic coordinate (no protein position in the file). We stream
 the CSV (chr-grouped), keep chr7 rows in the CFTR GRCh38 window, and stop once we
 leave the chr7 block. Join onto observed variants by (chrom,pos,ref,alt).
 Columns: chr,hg19_pos,grch38_pos,ref,alt,aaref,aaalt,REVEL,Ensembl_transcriptid.
+
+⚠ REVEL is SUPERVISED (trained ~2015 on HGMD/ClinVar-lineage pathogenic + ESP
+neutral), so benchmarking it against ClinVar/CFTR2 labels added after that risks
+temporal leakage — see notebook 12.
 """
 from pathlib import Path
 import zipfile

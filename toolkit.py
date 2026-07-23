@@ -54,7 +54,7 @@ References
     REVEL         : Ioannidis et al. 2016 AJHG     PMID 27666373
     PrimateAI     : Sundaram et al. 2018 Nat Genet PMID 30038395
     SpliceAI      : Jaganathan et al. 2019 Cell    PMID 30661751
-    Pangolin      : Zeng & Bromberg 2021 Genome Biol PMID 34753498
+    Pangolin      : Zeng & Li 2022  Genome Biol PMID 35449021 (github.com/tkzeng/Pangolin)
     CADD-Splice   : Rentzsch et al. 2021 Genome Med  PMID 33618777
     REVEL thresholds : Pejaver et al. 2022 AJHG (ACMG calibration) PMID 36413997
 """
@@ -93,6 +93,9 @@ SPLICEAI_CSV = PKG_DIR / "data" / "spliceai_cftr_2021_v1.3.csv"
 ESM1B_CSV    = PKG_DIR / "data" / "esm1b_cftr.csv"
 REVEL_CSV    = PKG_DIR / "data" / "revel_cftr_v1.3.csv"
 PRIMATEAI_CSV = PKG_DIR / "data" / "primateai_cftr.csv"
+# REAL Pangolin scores, produced by running the model locally (build_pangolin.py).
+# Coverage depends on the target set run; a small curated run stays source='DEMO'.
+PANGOLIN_CSV = PKG_DIR / "data" / "pangolin_cftr.csv"
 
 # CFTR locus, GRCh38. CFTR is on the minus strand of chromosome 7.
 CFTR_CHR, CFTR_START, CFTR_END = "7", 117_470_098, 117_667_108
@@ -154,10 +157,27 @@ TOOL_REGISTRY = {
         circularity="low-for-clinvar", pmid="30661751"),
     "Pangolin": dict(kind="splice", learning="supervised (on splice usage across species/tissues)",
         signal="deep net predicting splice-site usage change",
-        circularity="low-for-clinvar", pmid="34753498"),
+        circularity="low-for-clinvar", pmid="35449021"),
     "CADD": dict(kind="general", learning="semi-supervised",
         signal="SVM/logistic on many annotations; trained on simulated-vs-observed variants",
         circularity="medium", pmid="33618777"),
+}
+
+# Publication / training-freeze year per tool — the anchor for the temporal-leakage
+# reference (notebook 12). A variant's clinical label can only leak into a tool if the
+# tool's training data postdates the variant's first pathogenic report AND the tool
+# learned from clinical labels. `label_supervised` marks the tools where a post-report
+# training year is a *direct* leakage risk (REVEL); unsupervised/proxy tools carry only
+# INDIRECT risk (benchmarks/frequency calibration), so a date flag there is weaker.
+# NOTE: CADD is NOT trained on clinical labels — it contrasts observed vs simulated
+# variants (proxy). CFTR2 is NOT independent of ClinVar (they cross-cite); see nb12.
+TOOL_YEAR = {
+    "AlphaMissense": 2023, "EVE": 2021, "ESM1b": 2023, "PrimateAI": 2018,
+    "REVEL": 2016, "SpliceAI": 2019, "Pangolin": 2022, "CADD": 2021,  # CADD v1.7
+}
+LABEL_SUPERVISED = {  # trained directly on curated clinical pathogenic/benign labels?
+    "AlphaMissense": False, "EVE": False, "ESM1b": False, "PrimateAI": False,
+    "REVEL": True, "SpliceAI": False, "Pangolin": False, "CADD": False,
 }
 
 
@@ -514,9 +534,12 @@ def load_cftr2(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     CFTR2 (cftr2.org) is the clinical-functional reference for CF: it labels
     variants as 'CF-causing', 'Varying clinical consequence', 'Non CF-causing',
     or 'No interpretation available', based on patient data + in-vitro CFTR
-    function. Because CFTR2's call includes FUNCTIONAL assay evidence, it is a
-    useful ORTHOGONAL truth set for benchmarking sequence predictors (notebook
-    08) — less circular than ClinVar for supervised tools.
+    function. Its *in-vitro functional-assay* axis is evidence ClinVar largely
+    lacks, so CFTR2 is **partially** more orthogonal than ClinVar for benchmarking.
+    ⚠ It is NOT an independent gold standard: CFTR2 and ClinVar share clinical/
+    patient evidence, ClinVar entries cite CFTR2, and CFTR2 informs the ACMG CFTR
+    guidance that ClinVar submitters follow — so benchmarking against it is not
+    circularity-free (notebook 12).
 
     REAL if the extract exists: the full public CFTR2 variant list (30 January 2026
     release, ~2,097 variants) built from the official cftr2.org download by
@@ -600,7 +623,7 @@ def load_splice_demo() -> pd.DataFrame:
     variant creates/destroys an acceptor or donor site: four deltas DS_AG
     (acceptor gain), DS_AL (acceptor loss), DS_DG (donor gain), DS_DL
     (donor loss), each 0–1. DS_max = max of the four. DS_max >= 0.5 = high
-    impact, >= 0.2 = moderate. Pangolin (Zeng 2021) is a similar model giving
+    impact, >= 0.2 = moderate. Pangolin (Zeng & Li 2022) is a similar model giving
     one 0–1 score.
 
     ⚠ The DS_/pangolin numbers here are DEMO (hand-authored). For real scores:
@@ -639,6 +662,32 @@ def load_spliceai(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     if not demo:
         _missing_extract("SpliceAI", SPLICEAI_CSV, strict)
     return load_splice_demo()
+
+
+def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
+    """Pangolin splice scores for CFTR — REAL if you have run the model.
+
+    Pangolin (Zeng & Li 2022, Genome Biol 23:103, PMID 35449021,
+    github.com/tkzeng/Pangolin) has no precomputed per-gene release and is not in
+    dbNSFP, so real scores require RUNNING the model: ``build_pangolin.py`` does
+    that locally (weights bundled with the pip package; only the ~215 kb CFTR
+    reference region is needed, no whole-genome download). Score 0-1, >= 0.5 high,
+    >= 0.2 moderate; keyed by genomic coordinate.
+
+    REAL if the extract exists (``data/pangolin_cftr.csv``). NOTE: a small curated
+    run (e.g. the classic CF splice alleles) is genuine model output but is labelled
+    ``source='DEMO'`` by build_pangolin.py because its *coverage* is not a real-scale
+    worklist — promote to REAL only when run over a real target set. If the file is
+    absent this falls back to the hand-authored splice-demo pangolin values (with a
+    warning; strict=True raises).
+    """
+    if not demo and PANGOLIN_CSV.exists():
+        df = pd.read_csv(PANGOLIN_CSV)
+        return df  # source column set by build_pangolin.py (DEMO for curated scope)
+    if not demo:
+        _missing_extract("Pangolin", PANGOLIN_CSV, strict)
+    d = load_splice_demo()
+    return d[["variant_id", "hgvs_c", "legacy_name", "pangolin_score", "source"]]
 
 
 # =============================================================================

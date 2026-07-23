@@ -15,5 +15,10 @@ data/*
 outputs/
 _tmp_fetch/
 
+# ── ARCHIVE: superseded work kept locally, NOT pushed ──────────────────────
+# The old integration notebook (A1/A2 reproduction) lives here; real genome-wide
+# prediction moves to a dedicated predict/ pipeline (roadmap). Kept for reference.
+archive/
+
 # stray / non-CFTR working files
 *.parquet

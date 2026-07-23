@@ -49,6 +49,23 @@ Notes:
 | **AlphaMissense** | `alphamissense_cftr.tsv` | 9,721 | `fetch_scores.py::fetch_alphamissense` | `gs://dm_alphamissense/AlphaMissense_aa_substitutions.tsv.gz` (bulk file), filtered to UniProt P13569 | **CONFIRM AlphaMissense data-use license** |
 | **ClinVar** | `clinvar_cftr.tsv` | 6,101 | `fetch_scores.py::fetch_clinvar_cftr` | `ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz`, filtered to CFTR | **Release date UNPINNED** — ClinVar updates ~weekly; record the exact release you used, since it drives the A1 VUS set |
 
+## Run-the-model (no precomputed release exists)
+
+| Tool | Save-as in `data/` | Build script | What it needs | Source | License |
+|---|---|---|---|---|---|
+| **Pangolin** | `pangolin_cftr.csv` | `build_pangolin.py` | model weights (bundled in the pip package) + `cftr_region_grch38.fa` (~215 kb CFTR region, auto-fetched from Ensembl) — **no whole-genome download** | github.com/tkzeng/Pangolin (Zeng & Li 2022, PMID 35449021) | non-commercial |
+
+Install + run:
+```bash
+pip install "git+https://github.com/tkzeng/Pangolin.git" pyfaidx gffutils
+python build_pangolin.py     # scores the classic CF splice alleles (correct CFTR2 coords)
+```
+Pangolin has no Illumina-style precomputed file and is not in dbNSFP, so scores come
+from running the model. A small curated run is genuine model output but labelled
+`source='DEMO'` by coverage; it is validated against real SpliceAI (e.g. c.2988+1G>A:
+Pangolin 0.86 vs SpliceAI 0.99). `cftr_region_grch38.fa` is a cached reference slice,
+not licensed data.
+
 ## Live API (no local file)
 
 - **CADD v1.7** — queried per-variant at
