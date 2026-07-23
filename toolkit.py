@@ -691,7 +691,100 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
 
 # =============================================================================
-# 7. Scoring helpers — turn a raw score into a 3-class call
+# 7. Shared curated "worked-example" panels (A1 missense / A2 splice)
+# =============================================================================
+# A fixed panel of famous CFTR variants scored by EVERY tool, so a reader can
+# follow the SAME variants through all the per-tool notebooks (A1 -> 01-08,
+# A2 -> 09-11). Uses REAL extracts where they exist; missing extracts -> NaN.
+
+def a1_panel() -> pd.DataFrame:
+    """The curated A1 (missense) panel scored by every missense tool — REAL.
+
+    ~14 famous CFTR missense variants x {gnomAD AF, AlphaMissense, EVE, ESM1b,
+    REVEL, PrimateAI} plus the CFTR2 / ClinVar truth. Protein-keyed tools join on
+    ``protein_variant``; **REVEL is coordinate-keyed**, so it is bridged via each
+    variant's gnomAD genomic coordinate — a live demo of the join-key lesson.
+    Any tool whose extract is absent contributes NaN (fresh-clone safe).
+    """
+    demo = _demo_frame()
+    demo["protein_variant"] = demo["protein_variant"].apply(three_to_one)
+    panel = demo[["protein_variant"]].copy()
+
+    def _try_merge(load, col, out, key="protein_variant"):
+        try:
+            d = load()[[key, col]].drop_duplicates(key).rename(columns={col: out})
+            return panel.merge(d, on=key, how="left")
+        except Exception:
+            panel[out] = np.nan
+            return panel
+
+    try:
+        g = load_gnomad_missense()[["protein_variant", "variant_id", "gnomad_af"]].drop_duplicates("protein_variant")
+        panel = panel.merge(g, on="protein_variant", how="left")
+    except Exception:
+        panel["variant_id"] = None
+        panel["gnomad_af"] = np.nan
+    for load, col, out in [(load_alphamissense, "am_score", "AM"), (load_eve, "eve_score", "EVE"),
+                           (load_esm1b, "esm1b_score", "ESM1b"), (load_primateai, "primate_ai_score", "PAI")]:
+        panel = _try_merge(load, col, out)
+    # REVEL: coordinate-keyed -> look up by the gnomAD variant_id (chrom-pos-ref-alt)
+    try:
+        rev = load_revel()
+        def _rev(vid):
+            if not isinstance(vid, str):
+                return np.nan
+            p = vid.split("-")
+            if len(p) != 4:
+                return np.nan
+            h = rev[(rev["pos"] == int(p[1])) & (rev["ref"] == p[2]) & (rev["alt"] == p[3])]
+            return h["revel_score"].iloc[0] if len(h) else np.nan
+        panel["REVEL"] = panel["variant_id"].apply(_rev)
+    except Exception:
+        panel["REVEL"] = np.nan
+    panel = _try_merge(load_cftr2, "cftr2_class", "cftr2_class")
+    panel = _try_merge(load_clinvar, "clinvar_call", "clinvar_call")
+    return panel[["protein_variant", "gnomad_af", "AM", "EVE", "ESM1b", "REVEL",
+                  "PAI", "cftr2_class", "clinvar_call"]]
+
+
+# Known CF splice alleles for the A2 panel — looked up by CFTR2 cDNA name so we use
+# the AUTHORITATIVE GRCh38 coordinates (not the demo's hand-entered ones).
+A2_KNOWN_CDNA = ["c.2988+1G>A", "c.2657+5G>A", "c.3718-2477C>T", "c.3140-26A>G", "c.1680-886A>G"]
+
+
+def a2_panel(cadd: bool = False) -> pd.DataFrame:
+    """The curated A2 (splice) panel scored by every splice tool — REAL.
+
+    Known CF splice alleles with **correct CFTR2 GRCh38 coordinates** x
+    {SpliceAI (real), Pangolin (real, from build_pangolin.py)} plus optional live
+    CADD (``cadd=True``; one API call per row). Coordinate-keyed. Needs the CFTR2
+    and SpliceAI extracts; Pangolin needs build_pangolin.py to have run.
+    """
+    cf = load_cftr2()
+    a2 = (cf[cf["cdna_name"].isin(A2_KNOWN_CDNA)]
+          [["cdna_name", "legacy_name", "grch38_pos", "grch38_ref", "grch38_alt", "cftr2_class"]]
+          .dropna(subset=["grch38_pos"]).copy())
+    a2["pos"] = a2["grch38_pos"].astype(int)
+    sp = load_spliceai()
+
+    def _sa(r):
+        h = sp[(sp["pos"] == r["pos"]) & (sp["ref"] == r["grch38_ref"]) & (sp["alt"] == r["grch38_alt"])]
+        return round(float(h["spliceai_ds_max"].iloc[0]), 4) if len(h) else np.nan
+    a2["SpliceAI"] = a2.apply(_sa, axis=1)
+    try:
+        pg = load_pangolin()[["cdna_name", "pangolin_score"]].rename(columns={"pangolin_score": "Pangolin"})
+        a2 = a2.merge(pg, on="cdna_name", how="left")
+    except Exception:
+        a2["Pangolin"] = np.nan
+    cols = ["cdna_name", "legacy_name", "pos", "SpliceAI", "Pangolin"]
+    if cadd:
+        a2["CADD"] = a2.apply(lambda r: fetch_cadd("7", r["pos"], r["grch38_ref"], r["grch38_alt"]).get("cadd_phred"), axis=1)
+        cols.append("CADD")
+    return a2[cols + ["cftr2_class"]].reset_index(drop=True)
+
+
+# =============================================================================
+# 8. Scoring helpers — turn a raw score into a 3-class call
 # =============================================================================
 def call_from_score(score, tool: str) -> str:
     """Map a raw score to {'pathogenic','uncertain','benign'} using THRESHOLDS.
