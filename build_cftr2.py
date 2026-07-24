@@ -99,7 +99,29 @@ g = pd.DataFrame(ws2.iter_rows(min_row=2, values_only=True),
 gcols = {"Variant cDNA name": "cdna_name", "grch38_chr": "grch38_chr",
          "grch38_pos": "grch38_pos", "grch38_ref": "grch38_ref", "grch38_alt": "grch38_alt"}
 g = g[[c for c in gcols]].rename(columns=gcols).drop_duplicates("cdna_name")
-df = df.merge(g, on="cdna_name", how="left")
+
+# Some CFTR2 variants are listed under a PIPE-combined cDNA name — e.g. W1282X is
+# `c.3845G>A|c.3846G>A`, two SNVs that both create the same stop codon — but the
+# genomic sheet keys each single cDNA name separately. A plain string merge misses
+# these (72 variants -> NA coords). Resolve by trying the whole name, then each
+# `|`-separated alternative, taking the FIRST that has coordinates (one valid genomic
+# representation of a clinically-equivalent variant).
+_GCOORD = {k: v for k, v in
+           g.set_index("cdna_name")[["grch38_chr", "grch38_pos", "grch38_ref", "grch38_alt"]]
+            .to_dict("index").items()}
+
+def _resolve_coords(cdna):
+    if not isinstance(cdna, str):
+        return {}
+    for alt in [cdna, *cdna.split("|")]:
+        hit = _GCOORD.get(alt.strip())
+        if hit and pd.notna(hit.get("grch38_pos")):
+            return hit
+    return {}
+
+coords = pd.DataFrame([_resolve_coords(c) for c in df["cdna_name"]], index=df.index,
+                      columns=["grch38_chr", "grch38_pos", "grch38_ref", "grch38_alt"])
+df = pd.concat([df, coords], axis=1)
 
 df.to_csv(OUT, index=False)
 print("wrote", OUT.relative_to(PKG), "rows:", len(df))
