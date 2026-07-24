@@ -1,5 +1,5 @@
 {
-  "_comment": "Provenance + reproducibility manifest for the toolkit's REAL data sources. IMPORTANT: nothing here ships in the repo — all of data/, outputs/ and _tmp_fetch/ are gitignored. 'local_file' is where an extract lives AFTER you build it locally (see data/README.md); it is NOT committed. derived_extract entries carry a sha256/rows so verify_data.py can detect drift in your local build. Large raw sources and external caches (_tmp_fetch/*) are documented but not hashed.",
+  "_comment": "Provenance + reproducibility manifest for the toolkit's REAL data sources. IMPORTANT: nothing here ships in the repo \u2014 all of data/, outputs/ and _tmp_fetch/ are gitignored. 'local_file' is where an extract lives AFTER you build it locally (see data/README.md); it is NOT committed. derived_extract entries carry a sha256/rows so verify_data.py can detect drift in your local build. Large raw sources and external caches (_tmp_fetch/*) are documented but not hashed.",
   "ships_in_repo": false,
   "schema_version": 1,
   "datasets": {
@@ -20,7 +20,7 @@
       "notebook": "08",
       "kind": "derived_extract",
       "local_file": "data/cftr2_2026-01-30.csv",
-      "sha256": "5267ea67db26e80052cf9a11da18179d8ab28e2025276ca1ebfb4a93f3ac294d",
+      "sha256": "298dbc42e3496a477641c8e6a6f69cc1d4feef9c749bc78f8235ccae90215813",
       "rows": 2097,
       "built_by": "build_cftr2.py",
       "raw_source": "docs/CFTR2_30January2026.xlsx (external, not committed)",
