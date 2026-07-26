@@ -97,7 +97,8 @@ PRIMATEAI_CSV = PKG_DIR / "data" / "primateai_cftr.csv"
 # Coverage depends on the target set run; a small curated run stays source='DEMO'.
 PANGOLIN_CSV = PKG_DIR / "data" / "pangolin_cftr.csv"
 
-# CFTR locus, GRCh38. CFTR is on the minus strand of chromosome 7.
+# CFTR locus, GRCh38. CFTR is on the PLUS (forward) strand of chromosome 7 (7q31.2),
+# so cDNA/coding alleles read the same as the genomic ref/alt — no complementing.
 CFTR_CHR, CFTR_START, CFTR_END = "7", 117_470_098, 117_667_108
 CFTR_UNIPROT = "P13569"            # AlphaMissense protein key
 CFTR_MANE_TX = "NM_000492.4"       # MANE Select transcript
@@ -312,9 +313,11 @@ def fetch_cadd(chrom: str, pos: int, ref: str, alt: str,
     handy one: PHRED >= 15 means "top ~3% most deleterious of all possible
     variants"; >= 20 means top 1%. CADD v1.7 folds in some splice features.
 
-    NOTE ON STRAND: CFTR is on the genomic minus strand, so a coding-strand
-    change (e.g. C>T) appears on the plus strand as its complement (G>A). This
-    helper tries both orientations.
+    NOTE ON STRAND: CFTR is on the genomic PLUS strand (7q31.2), so a coding
+    change (e.g. C>T) is reported on the genome as the SAME alleles (C>T) — no
+    complementing is needed. This helper still falls back to trying the
+    complement, purely as a guard against upstream tables that (wrongly, for
+    CFTR) report minus-strand alleles; for correct input it never fires.
 
     API: https://cadd.gs.washington.edu/api/v1.0/GRCh38-v1.7/{chr}:{pos}-{pos}
     Returns dict(cadd_raw, cadd_phred) or None values on miss.
@@ -485,8 +488,8 @@ def load_revel(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     REAL if the extract exists: genome-wide REVEL v1.3 for CFTR (~10,826 variants)
     from `data/revel_cftr_v1.3.csv`, built by build_revel.py. **Keyed by genomic
     coordinate** (chrom,pos,ref,alt) — the REVEL table has no protein position, so
-    join it onto observed variants by coordinate (mind CFTR's minus strand), not
-    protein_variant. Non-commercial license. The extract is gitignored → fresh
+    join it onto observed variants by coordinate, not protein_variant. (CFTR is
+    plus-strand, so the coding alleles match the genomic ref/alt directly.) Non-commercial license. The extract is gitignored → fresh
     clone falls back to the DEMO table (source='DEMO') with a warning; strict=True
     raises, demo=True is silent.
     """
