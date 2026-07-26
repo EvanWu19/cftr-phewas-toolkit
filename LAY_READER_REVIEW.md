@@ -39,8 +39,8 @@ Perspective: I read this repository as a new learner in bioinformatics, CFTR, an
    - Suggested beginner framing: missense changes one amino acid; splice variants affect exon/intron cutting and joining; synonymous changes do not change the amino acid but can still affect splicing; deep intronic variants sit far inside introns but can create cryptic splice sites.
 
 7. **The CFTR strand issue is easy to miss.**
-   - `fetch_cadd()` mentions that CFTR is on the minus strand and tries complements.
-   - A reader needs a central explanation that genomic `ref/alt` may look like the complement of the cDNA/HGVS coding change.
+   - CFTR is on the **plus** strand, so genomic `ref/alt` matches the cDNA/HGVS coding change directly — no complementing. (Earlier drafts of the repo claimed the minus strand; that was wrong and has been corrected.)
+   - `fetch_cadd()` still tries the complement as a defensive fallback for mis-oriented upstream tables; a reader needs to know that is a guard, not the normal path.
    - This matters because several tools are keyed by protein variant, while others are keyed by genomic coordinate.
 
 8. **Join keys are a recurring source of hidden complexity.**

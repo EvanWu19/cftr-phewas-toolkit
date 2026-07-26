@@ -12,7 +12,8 @@ does that, without a 3 GB whole-genome download:
                   (data/cftr2_2026-01-30.csv), NOT the demo's hand-entered ones —
                   so Pangolin scores the variant it is supposed to.
 
-Pangolin is minus-strand-aware; CFTR is on the minus strand. We call the model's
+Pangolin is strand-aware; CFTR is on the PLUS strand, so we score in plus-strand
+orientation (strand='+', see pangolin_score()). We call the model's
 own compute_score() on a +/-5000 bp window (no gene-annotation DB needed — the
 score is sequence + strand only). The reported pangolin_score = the larger of the
 biggest splice-usage gain and the biggest loss across the window (Pangolin's DS_max

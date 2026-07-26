@@ -93,10 +93,10 @@ several keys, and most "biological disagreements" are really key mismatches:
 | Protein (3-letter) | `Gly551Asp` | some curated tables, ClinVar `Name` | must convert to 1-letter to join (`three_to_one()` in `toolkit.py`) |
 | HGVS coding | `c.1652G>A` | CFTR2, clinical reports | needs the MANE transcript (`NM_000492.4`) |
 | Legacy CFTR name | `2789+5G>A` | CFTR2 history, older literature | no formula — kept as a lookup column |
-| Genomic coordinate | `7-117587799-G-A` (`chrom,pos,ref,alt`) | REVEL, SpliceAI, CADD, gnomAD `variant_id` | **CFTR is on the minus strand**, so the genomic `ref/alt` is the *complement* of the coding change (coding C>T shows as G>A) |
+| Genomic coordinate | `7-117587799-G-A` (`chrom,pos,ref,alt`) | REVEL, SpliceAI, CADD, gnomAD `variant_id` | **CFTR is on the plus strand**, so the genomic `ref/alt` is the *same* as the coding change (coding `c.1624G>T` shows as `G`/`T`) — don't complement; the real risk is joining on the wrong build or the wrong key |
 
 REVEL and SpliceAI are keyed by **coordinate** (no protein position), so they join by
-`chrom,pos,ref,alt` — mind the strand. AlphaMissense/EVE/ESM1b join by
+`chrom,pos,ref,alt` — mind the genome build. AlphaMissense/EVE/ESM1b join by
 **protein_variant**. `hgvsp_to_short()` and `three_to_one()` in `toolkit.py` are the
 helpers that normalise between them.
 
