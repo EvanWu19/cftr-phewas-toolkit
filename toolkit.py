@@ -108,7 +108,7 @@ CFTR_MANE_TX = "NM_000492.4"       # MANE Select transcript
 # ─────────────────────────────────────────────────────────────────────────────
 # NB: these are deliberately *simple* single cut-points taken from each tool's
 # calibration paper. Real ACMG use (esp. REVEL) applies GRADED thresholds for
-# different evidence strengths — see notebook 13 and Pejaver 2022.
+# different evidence strengths — see notebook 05 and Pejaver 2022.
 THRESHOLDS = {
     # higher score = more pathogenic
     "am":         {"path": 0.564, "benign": 0.340},   # AlphaMissense class cuts
@@ -240,7 +240,7 @@ def load_alphamissense() -> pd.DataFrame:
     predictor. It is *unsupervised* w.r.t. clinical labels — trained on protein
     sequences/structures plus weak population-frequency calibration, NOT on
     ClinVar pathogenic/benign labels. That is why it is a good tool to compare
-    *against* ClinVar without circular reasoning (see notebook 13).
+    *against* ClinVar without circular reasoning (see notebook 12).
 
     Score `am_pathogenicity` in [0,1]; AlphaMissense's own 3-class cut-points:
         >= 0.564  -> "likely_pathogenic"
@@ -277,7 +277,7 @@ def load_clinvar() -> pd.DataFrame:
     Conflicting) submitted by labs. It is the de-facto clinical "truth" set —
     but treat it with care: assertions vary in review status (star rating) and,
     crucially, some predictors were TRAINED on ClinVar-lineage labels, so
-    comparing those predictors to ClinVar is partly circular (notebook 13).
+    comparing those predictors to ClinVar is partly circular (notebook 12).
 
     Returns: protein_variant, clinvar_sig, review_status, clinvar_call, source.
     `clinvar_call` collapses the free-text significance to pathogenic/benign/
@@ -480,7 +480,7 @@ def load_revel(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
     ⚠ CIRCULARITY: REVEL's training labels share lineage with ClinVar/HGMD, so
     'REVEL disagrees with ClinVar' can partly reflect label leakage, not
-    independent evidence. Handle in notebook 13.
+    independent evidence. Handled in notebook 12.
 
     REAL if the extract exists: genome-wide REVEL v1.3 for CFTR (~10,826 variants)
     from `data/revel_cftr_v1.3.csv`, built by build_revel.py. **Keyed by genomic
