@@ -90,18 +90,18 @@
       "version": "Pangolin (Zeng & Li 2022, Genome Biol 23:103, PMID 35449021)",
       "retrieval_date": "2026-07-18",
       "license": "Pangolin non-commercial; cite Zeng & Li 2022",
-      "note": "REAL model output. A small curated run (classic CF splice alleles, correct CFTR2 coords) is labelled source=DEMO by coverage/scope; validated against real SpliceAI (e.g. c.2988+1G>A: Pangolin 0.86 vs SpliceAI 0.99). Promote to REAL over a real-scale target set."
+      "note": "REAL model output. Default scope (--scope cftr2) runs the model over every CFTR2 variant with GRCh38 coords: ~1,892 of 2,097 scored, SNVs AND indels, source=REAL. --scope curated scores only the 5 classic CF splice alleles and stays source=DEMO \u2014 the label follows COVERAGE, not the model. Validated against real SpliceAI (c.2988+1G>A: Pangolin 0.86 vs SpliceAI 0.99); across 311 non-coding variants both score, r=0.976. Unscorable rows are kept with a skip_reason (204 lack CFTR2 coords; 1 event >100 bp)."
     },
     "spliceai": {
       "notebook": "09",
       "kind": "derived_extract",
       "local_file": "data/spliceai_cftr_2021_v1.3.csv",
-      "sha256": "03639a6e324f1d2b3ebee839c4c29db44a67f535aae83f909a2c080d35d4f145",
-      "rows": 566106,
+      "sha256": "7d169ef93009bc4f3114ee3f95b9bf7798497c15b9571e2a142b0a0600c3d955",
+      "rows": 2075730,
       "built_by": "build_spliceai.py",
-      "raw_source": "05_analysis/spliceai_scores.masked.snv.hg38.vcf.gz (~28.6 GB, external, not committed)",
+      "raw_source": "spliceai_scores.masked.snv.hg38.vcf.gz (~28.6 GB) + spliceai_scores.raw.indel.hg38.vcf.gz (~69.3 GB) \u2014 both external, not committed",
       "source": "Illumina BaseSpace share https://basespace.illumina.com/s/otSPW8hnhaZR ('Predicting splicing from primary sequence' / genome_scores_v1.3)",
-      "version": "SpliceAI precomputed v1.3, GRCh38, masked SNV; Gencode v24, distance 50bp",
+      "version": "SpliceAI precomputed v1.3, GRCh38; Gencode v24, distance 50bp. MIXED score_type: 566,106 SNVs from the MASKED file + 1,509,624 indels from the RAW file (masked.indel is commonly a 0-byte failed download). Rows carry score_type/variant_class. Masked vs raw agree exactly on 95.8% of CFTR SNVs (mean |diff| 0.0019) but 113 SNVs cross the 0.5 HIGH cut \u2014 do not compare a masked score against a raw one.",
       "retrieval_date": "2026-07-12",
       "license": "CC BY-NC 4.0 (Jaganathan et al. 2019, PMID 30661751) \u2014 attribute SpliceAI+Illumina; do NOT commit raw VCF; publishing derived extract needs NC notice (plan R43)"
     },

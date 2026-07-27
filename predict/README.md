@@ -25,31 +25,35 @@ breaks CFTR*, rather than merely returning a number for it:
 
 | | no score exists | mechanism unaddressed |
 |---|---|---|
-| by variant | 205 (9.8%) | **953 (45.4%)** |
+| by variant | 205 (9.8%) | **951 (45.4%)** |
 | by CF allele frequency | 2.3% | **79.9%** |
-| of CF-causing variants | 111 / 1,245 | **790 / 1,245** |
+| of CF-causing variants | 111 / 1,245 | **788 / 1,245** |
 
-The second column is the honest one. **748 of those 953 carry a score anyway** — a splice
+The second column is the honest one. **746 of those 951 carry a score anyway** — a splice
 verdict on a frameshift, or a missense score on a stop-gain. Nonsense and frameshift
 variants need loss-of-function / NMD reasoning and F508del needs protein folding; this
 toolkit models none of that.
 
-**F508del is the whole lesson in one row.** Pangolin — run locally, so able to score a 3-bp
-deletion — gives it **0.05**. That is correct (it does not disrupt splicing) and useless
-(it misfolds, and nothing here measures folding).
+**F508del is the whole lesson in one row.** Both splice tools reach it — SpliceAI **0.01**,
+Pangolin **0.05** — and both are correct (it does not disrupt splicing) and useless (it
+misfolds, and nothing here measures folding). Two independent models agreeing on the right
+answer to the wrong question is still no answer.
 
-## Why Pangolin is run locally, and what that bought
+## Both splice tools now score indels — and what that bought
 
-Pangolin has no precomputed release, so `build_pangolin.py` executes the model over every
-CFTR2 variant with GRCh38 coordinates (~1,892 of 2,097, ~4 min on a GPU). Because it is a
-local run rather than a precomputed *masked-SNV* file, it scores **indels** — 575 of the 713
-CFTR2 deletions/insertions — which SpliceAI's precomputed release cannot touch at all.
+- **SpliceAI**: `build_spliceai.py` reads Illumina's precomputed **`raw.indel`** release
+  alongside the masked SNVs → 1.51 M CFTR indel records, 417 of the 713 CFTR2 indels.
+  (`masked.indel` is commonly a 0-byte failed download, so the extract is **mixed
+  masked/raw** — rows carry `score_type`; see notebook 09 for the size of that seam.)
+- **Pangolin**: no precomputed release exists, so `build_pangolin.py` runs the model over
+  every CFTR2 variant with GRCh38 coordinates (~1,892 of 2,097, ~4 min on a GPU) — 575 of
+  the 713 indels.
 
-That reach is mostly an illusion: it moved ~575 indels out of "no score" and only **35** into
-"mechanism addressed", and its sensitivity on indels is **0.05** (it misses 478 of 505
-CF-causing ones — correctly, as splice biology). The real payoff is different: Pangolin is now
-a **second, independently-built splice model measured at scale**, and it agrees with SpliceAI
-(*r* ≈ 0.98; of 311 non-coding variants both score, they disagree on 12 at the 0.5 cut).
+That reach is mostly an illusion. It moved ~580 indels out of "no score" and only **52** into
+"mechanism addressed"; on indels the two score **0.04** and **0.05** sensitivity, missing 365
+of 380 and 478 of 505 CF-causing ones respectively — correctly, as splice biology. The real
+payoff is different: two **independently-built** splice models now measured at scale, and they
+agree (*r* ≈ 0.98; of 311 non-coding variants both score, they disagree on 12 at the 0.5 cut).
 Agreement between two independent models is stronger evidence than either alone.
 
 ## Performance, in domain and out
@@ -65,10 +69,12 @@ Each tool at its own published cut-point, against CFTR2 CF-causing vs Non CF-cau
 | PrimateAI | missense | 245 | 0.202 | 1.000 |
 | SpliceAI | non-coding | 158 | **0.968** | 1.000 |
 | Pangolin | non-coding | 158 | **0.948** | 1.000 |
+| SpliceAI | *indels (out of domain)* | 381 | 0.039 | 1.000 |
 | Pangolin | *indels (out of domain)* | 507 | 0.053 | 1.000 |
 
-Judged on everything they happened to score instead, SpliceAI reads 0.27 and Pangolin 0.17 —
-measurement artefacts, not results. **Restrict a tool to its domain before judging it.**
+Judged on everything they happened to score instead, SpliceAI reads **0.18** and Pangolin
+**0.17** — a 20-fold swing from the same models on the same day, driven entirely by which
+variants you let into the denominator. **Restrict a tool to its domain before judging it.**
 
 ## Outputs
 
@@ -80,7 +86,7 @@ Written to `../outputs/` (gitignored — regenerated, never committed):
 | `predict_part1_missense_tools.csv` | part 1 rows |
 | `predict_part2_splice_tools_only.csv` | part 2 rows |
 | `predict_part3_no_tool.csv` | part 3 rows — the variants nothing scores |
-| `predict_mechanism_unaddressed.csv` | the 953 whose mechanism no tool here models |
+| `predict_mechanism_unaddressed.csv` | the 951 whose mechanism no tool here models |
 | `predict_tool_coverage.csv` | per-tool: join key, variants scored, % of CFTR2, learning type |
 | `predict_tool_performance.csv` | per-tool TP/FP/FN/TN + sensitivity/specificity, naive **and** domain-restricted |
 | `predict_category_summary.csv` | counts by part × variant class × mechanism |
@@ -113,9 +119,12 @@ jupyter nbconvert --to notebook --execute --inplace predict/13_cftr2_benchmark.i
   ClinVar-lineage labels, so REVEL's agreement is partly circular (notebook 12).
 - **42 negatives.** CFTR2 has ~1,245 CF-causing vs ~42 Non CF-causing variants, so specificity
   is noisy and accuracy is close to meaningless. Rank by sensitivity.
-- **Coverage ≠ competence** — Pangolin calls 478 of 505 CF-causing indels "no splice impact";
-  REVEL emits scores for 12 nonsense variants. That is why performance is reported twice, once
-  restricted to each tool's actual domain.
+- **Coverage ≠ competence** — the splice tools call ~95% of CF-causing indels "no splice
+  impact"; REVEL emits scores for 12 nonsense variants. That is why performance is reported
+  twice, once restricted to each tool's actual domain.
+- **The SpliceAI extract mixes masked SNVs with raw indels**, because Illumina's
+  `masked.indel` release is usually a broken download. Masked and raw agree on 95.8% of CFTR
+  SNVs, but 113 cross the 0.5 cut — check `score_type` before comparing scores across rows.
 - **The mechanism split is a judgement call**, not a measurement: it assumes a splice model
   says nothing useful about a frameshift unless it actively flags disruption (≥ 0.5). The rule
   is in the notebook (§7) and one cell away from being changed.

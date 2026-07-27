@@ -42,7 +42,7 @@ have built or cached its extract locally*, **not** what you get on `git clone`.
 | **ESM1b** | build `data/…csv` | ~28,120 CFTR (saturation) | ⚠️ DEMO fallback | 04 |
 | **REVEL** | build `data/…csv` | ~10,826 CFTR (coord-keyed; non-commercial) | ⚠️ DEMO fallback | 05 |
 | **PrimateAI** | build `data/…csv` | ~1,976 CFTR (dbNSFP subset; non-commercial) | ⚠️ DEMO fallback | 06 |
-| **SpliceAI** | build `data/…csv` | ~566k CFTR SNVs (Illumina v1.3, CC BY-NC) | ⚠️ DEMO fallback | 09 |
+| **SpliceAI** | build `data/…csv` | ~2.08M CFTR records — 566k SNVs **+ 1.51M indels** (Illumina v1.3, CC BY-NC) | ⚠️ DEMO fallback | 09 |
 | CADD | — (live API) | per-variant | ✅ live (cache it) | 11 |
 | **Pangolin** | run `build_pangolin.py` | ~1,892 CFTR2 variants (SNVs **and** indels) | ⚠️ DEMO fallback | 10 |
 
@@ -62,8 +62,13 @@ There are **three** states, not two:
 ~215 kb CFTR region is needed, ~4 min on a GPU). Its default scope covers every CFTR2
 variant with GRCh38 coordinates → `source='REAL'`; `--scope curated` scores just the 5
 classic splice alleles and stays `source='DEMO'`. **The label follows the coverage, not
-the model.** Because it is a local run rather than a precomputed *masked-SNV* file, it is
-the only splice tool here that scores indels.
+the model.**
+
+**Both splice tools score indels**, which no missense predictor can do. SpliceAI's come
+from Illumina's precomputed `raw.indel` release; since `masked.indel` is very often a
+0-byte failed download, the built extract is usually **mixed masked/raw** and every row
+carries a `score_type` column. Masked and raw agree on 95.8% of CFTR SNVs, but 113 cross
+the 0.5 cut — don't compare across the seam (notebook 09).
 
 CFTR2 and ClinVar are real *truth sets* (databases), not predictors. Every DataFrame
 a loader returns carries a `source` column (`REAL` / `DEMO`) so the two are never
@@ -296,7 +301,7 @@ whether it is current or historical. "Source" points at where it is computed.
 | **1,094** | historical "splice variants scored" (really 9 DEMO scored + ~1,085 unscored) | 🕰️ historical/demo | webpage |
 | **4,260 / 4,717** | non-coding variants that get a **real SpliceAI** score | ✅ current | nb 09 |
 | **164 / 82** | of those 4,260: real SpliceAI HIGH (≥0.5) / MODERATE (0.2–0.5) | ✅ current | nb 09 |
-| **566k** (566,106) | all precomputed SpliceAI CFTR SNVs in the built extract | ✅ current | nb 09; `spliceai.rows` |
+| **2.08M** (2,075,730) | all precomputed SpliceAI CFTR records in the built extract: 566,106 SNVs (masked) + 1,509,624 indels (raw) | ✅ current | nb 09; `spliceai.rows` |
 | 9 | hand-curated DEMO splice variants (the A2 teaching table) | 🟡 DEMO | `toolkit.py` |
 
 Coverage counts for the built extracts (saturation unless noted): EVE ~26,809 ·
@@ -335,10 +340,10 @@ sometimes evidence); if you read two, add **13** (what none of these tools can d
 
 > **`predict/` — the cross-tool pipeline.** [`predict/`](predict/README.md) runs every
 > tool against the full CFTR2 list and writes its results to `outputs/`. Only **205** of
-> the 2,097 variants get no score at all — but **953 (45%)** have no tool that addresses
+> the 2,097 variants get no score at all — but **951 (45%)** have no tool that addresses
 > *why* they break CFTR, and frequency-weighted that is **~80% of CF alleles**. F508del is
-> the lesson: Pangolin scores it 0.05, correctly saying it is not a splice variant, which
-> tells you nothing about the most common CF allele in the world.
+> the lesson: SpliceAI scores it 0.01 and Pangolin 0.05, both correctly saying it is not a
+> splice variant, which tells you nothing about the most common CF allele in the world.
 >
 > **Archived work:** the old A1/A2 *integration* notebook (which reproduced the
 > discordance worklists) has moved to `archive/` (kept locally, **not** shipped). The
