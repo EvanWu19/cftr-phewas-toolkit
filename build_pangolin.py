@@ -18,13 +18,31 @@ score is sequence + strand only). The reported pangolin_score = the larger of th
 biggest splice-usage gain and the biggest loss across the window (Pangolin's DS_max
 analogue), on 0-1 scale.
 
-SCOPE / LABEL: run over a small curated set (the classic CF splice alleles), the
-output is labelled source='DEMO' — genuine model output, but not a real-scale
-worklist. Promote to REAL only when run over a real target set (see README roadmap).
+SCOPE / LABEL — two modes, and the label follows the scope:
+
+  --scope cftr2    (default)  every CFTR2 variant carrying GRCh38 coordinates
+                              (~1,893 of 2,097), SNVs *and* indels → source='REAL'.
+                              This is a real-scale worklist, so it is labelled REAL.
+  --scope curated             just the 5 classic CF splice alleles → source='DEMO'.
+                              Genuine model output, but its *coverage* is a teaching
+                              subset, not a worklist — hence the DEMO label.
+
+Pangolin scores indels as well as SNVs (compute_score pads the delta track by the
+length difference), which is why the cftr2 scope reaches variant classes the
+precomputed masked-SNV SpliceAI release cannot. Events larger than MAX_EVENT bp are
+skipped: the ±50 bp aggregation window cannot say anything meaningful about a
+multi-kb deletion, and padding one would be a fabricated number.
+
+Every target is accounted for — rows that cannot be scored are still written, with
+pangolin_score empty and `skip_reason` saying why, so coverage is auditable rather
+than silently short.
 
 Install: pip install "git+https://github.com/tkzeng/Pangolin.git" pyfaidx gffutils
 Output:  data/pangolin_cftr.csv   (gitignored; non-commercial per Pangolin's terms)
+Runtime: ~4 min for the full CFTR2 scope on a CUDA GPU; CPU is many times slower.
 """
+import argparse
+import re
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -80,6 +98,11 @@ REF_FA = PKG / "data" / "cftr_region_grch38.fa"
 CFTR2_CSV = PKG / "data" / "cftr2_2026-01-30.csv"
 OUT = PKG / "data" / "pangolin_cftr.csv"
 DIST = 50  # Pangolin default distance (d): score window is +/-5000, aggregation +/-d
+# Largest ref/alt event we will score. Pangolin aggregates over +/-DIST bp, so a
+# multi-kb deletion (CFTR2 has one, the 24 kb 'Deletion of Intron 1') is outside what
+# the score means — skipped with a reason rather than reported as a number.
+MAX_EVENT = 100
+_ACGT = re.compile(r"^[ACGT]+$")
 
 # Classic CF splice alleles to validate against (by CFTR2 cDNA name); real GRCh38
 # coords are pulled from the CFTR2 genomic sheet, not hand-entered.
@@ -117,9 +140,14 @@ def load_region():
 
 
 def pangolin_score(chrom, pos, ref, alt, r0, seq, models, d=DIST):
-    """Genuine Pangolin score for one plus-strand SNV in the CFTR region."""
+    """Genuine Pangolin score for one plus-strand SNV or small indel in the CFTR region."""
     start = (pos - r0) - (5000 + d)
-    window = seq[start: start + 10000 + 2 * d + len(ref)]
+    end = start + 10000 + 2 * d + len(ref)
+    # Negative/over-long slices would silently return a short (wrong) window, so the
+    # bounds are checked rather than left to Python's forgiving slice semantics.
+    if start < 0 or end > len(seq):
+        raise ValueError(f"outside the cached reference window (needs {chrom}:{pos-5050}-{pos+5050})")
+    window = seq[start:end]
     got = window[5000 + d: 5000 + d + len(ref)]
     if got != ref:
         raise ValueError(f"ref mismatch at {chrom}:{pos} — window has {got!r}, expected {ref!r}")
@@ -132,34 +160,70 @@ def pangolin_score(chrom, pos, ref, alt, r0, seq, models, d=DIST):
     return round(float(max(gain.max(), -loss.min())), 4)
 
 
-def main():
+def targets(scope: str) -> pd.DataFrame:
+    """CFTR2 rows to score, with the un-scoreable ones already flagged.
+
+    Returns every requested variant — including the ones we cannot score — so the
+    caller can write a complete, auditable table instead of a silently short one.
+    """
+    cf = pd.read_csv(CFTR2_CSV)
+    if scope == "curated":
+        cf = cf[cf["cdna_name"].isin(KNOWN_SPLICE)]
+    cf = cf.copy()
+    ref, alt = cf["grch38_ref"].astype(str), cf["grch38_alt"].astype(str)
+    cf["skip_reason"] = None
+    cf.loc[cf["grch38_pos"].isna(), "skip_reason"] = "no GRCh38 coordinates in CFTR2"
+    bad = cf["skip_reason"].isna() & ~(ref.str.match(_ACGT) & alt.str.match(_ACGT))
+    cf.loc[bad, "skip_reason"] = "allele is not plain ACGT"
+    big = cf["skip_reason"].isna() & ((ref.str.len() > MAX_EVENT) | (alt.str.len() > MAX_EVENT))
+    cf.loc[big, "skip_reason"] = f"event larger than {MAX_EVENT} bp"
+    return cf
+
+
+def main(scope: str = "cftr2") -> None:
     r0, seq = load_region()
     models = load_models()
+    tgt = targets(scope)
+    label = "REAL" if scope == "cftr2" else "DEMO"   # label follows coverage, not model
+    print(f"scope={scope} → {len(tgt):,} CFTR2 variants, source label '{label}'")
 
-    # authoritative coords for the known splice alleles
-    cf = pd.read_csv(CFTR2_CSV)
-    sub = cf[cf["cdna_name"].isin(KNOWN_SPLICE)].dropna(subset=["grch38_pos"])
-    rows = []
-    for _, v in sub.iterrows():
-        chrom = str(int(v["grch38_chr"])); pos = int(v["grch38_pos"])
+    rows, done = [], 0
+    for _, v in tgt.iterrows():
+        score, reason = None, v["skip_reason"]
+        chrom = str(int(v["grch38_chr"])) if pd.notna(v.get("grch38_chr")) else "7"
+        pos = int(v["grch38_pos"]) if pd.notna(v["grch38_pos"]) else None
         ref, alt = str(v["grch38_ref"]), str(v["grch38_alt"])
-        try:
-            score = pangolin_score(chrom, pos, ref, alt, r0, seq, models)
-            ok = True
-        except Exception as e:
-            score, ok = None, False
-            print(f"  {v['cdna_name']}: {e}")
+        if reason is None:
+            try:
+                score = pangolin_score(chrom, pos, ref, alt, r0, seq, models)
+                done += 1
+                if scope == "curated" or done % 200 == 0:
+                    print(f"  [{done:5,}] {str(v['cdna_name'])[:24]:24} "
+                          f"({str(v['legacy_name'])[:16]:16}) pangolin={score}")
+            except Exception as e:                    # ref mismatch / out of window
+                reason = str(e).split(" — ")[0] if "—" in str(e) else str(e)
         rows.append({"cdna_name": v["cdna_name"], "legacy_name": v["legacy_name"],
-                     "chrom": chrom, "pos": pos, "ref": ref, "alt": alt,
-                     "pangolin_score": score, "cftr2_class": v["cftr2_class"],
-                     "source": "DEMO"})  # curated scope -> DEMO label (real model output)
-        if ok:
-            print(f"  {v['cdna_name']:16} ({v['legacy_name']}): pangolin={score}")
+                     "chrom": chrom, "pos": pos, "ref": ref if pos else None,
+                     "alt": alt if pos else None, "pangolin_score": score,
+                     "cftr2_class": v["cftr2_class"], "source": label,
+                     "skip_reason": reason})
+
     out = pd.DataFrame(rows)
     out.to_csv(OUT, index=False)
-    print(f"\nREAL Pangolin scores (curated set) written: {len(out)} -> {OUT.relative_to(PKG)}")
-    print("HIGH (>=0.5):", int((out['pangolin_score'].fillna(0) >= 0.5).sum()))
+    scored = out["pangolin_score"].notna()
+    print(f"\nPangolin ({label}) written: {int(scored.sum()):,} scored / {len(out):,} targets "
+          f"-> {OUT.relative_to(PKG)}")
+    print(f"  HIGH (>=0.5): {int((out['pangolin_score'].fillna(0) >= 0.5).sum()):,}"
+          f" | MODERATE (0.2-0.5): "
+          f"{int(((out['pangolin_score'] >= 0.2) & (out['pangolin_score'] < 0.5)).sum()):,}")
+    if (~scored).any():
+        print("\n  not scored, by reason:")
+        print(out.loc[~scored, "skip_reason"].value_counts().to_string())
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--scope", choices=["cftr2", "curated"], default="cftr2",
+                    help="cftr2 = every CFTR2 variant with coords (REAL); "
+                         "curated = the 5 classic splice alleles (DEMO)")
+    main(ap.parse_args().scope)

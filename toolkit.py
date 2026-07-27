@@ -674,12 +674,21 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     reference region is needed, no whole-genome download). Score 0-1, >= 0.5 high,
     >= 0.2 moderate; keyed by genomic coordinate.
 
-    REAL if the extract exists (``data/pangolin_cftr.csv``). NOTE: a small curated
-    run (e.g. the classic CF splice alleles) is genuine model output but is labelled
-    ``source='DEMO'`` by build_pangolin.py because its *coverage* is not a real-scale
-    worklist — promote to REAL only when run over a real target set. If the file is
-    absent this falls back to the hand-authored splice-demo pangolin values (with a
-    warning; strict=True raises).
+    REAL if the extract exists (``data/pangolin_cftr.csv``). ``build_pangolin.py
+    --scope cftr2`` (the default) scores every CFTR2 variant carrying GRCh38
+    coordinates — ~1,892 of 2,097, **SNVs and indels** — and labels the result
+    ``source='REAL'``; ``--scope curated`` scores just the 5 classic splice alleles
+    and stays ``source='DEMO'``, because that coverage is a teaching subset rather
+    than a worklist. The label follows the *scope*, never the model. Rows that could
+    not be scored are kept with an empty score and a ``skip_reason``.
+
+    Because Pangolin is run locally it reaches variant classes the precomputed
+    masked-SNV SpliceAI release cannot (notably indels) — but see notebook 13: a
+    Pangolin score on a frameshift is a *splice* verdict, and "no splice impact" is
+    usually correct and rarely the reason the variant is pathogenic.
+
+    If the file is absent this falls back to the hand-authored splice-demo pangolin
+    values (with a warning; strict=True raises).
     """
     if not demo and PANGOLIN_CSV.exists():
         df = pd.read_csv(PANGOLIN_CSV)

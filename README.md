@@ -44,7 +44,7 @@ have built or cached its extract locally*, **not** what you get on `git clone`.
 | **PrimateAI** | build `data/…csv` | ~1,976 CFTR (dbNSFP subset; non-commercial) | ⚠️ DEMO fallback | 06 |
 | **SpliceAI** | build `data/…csv` | ~566k CFTR SNVs (Illumina v1.3, CC BY-NC) | ⚠️ DEMO fallback | 09 |
 | CADD | — (live API) | per-variant | ✅ live (cache it) | 11 |
-| Pangolin | — | 9 curated splice variants | 🟡 DEMO always | 10 |
+| **Pangolin** | run `build_pangolin.py` | ~1,892 CFTR2 variants (SNVs **and** indels) | ⚠️ DEMO fallback | 10 |
 
 There are **three** states, not two:
 
@@ -55,8 +55,15 @@ There are **three** states, not two:
   returns REAL once you've built `data/<tool>.csv` with the matching `build_*.py`,
   otherwise it **falls back to a small DEMO table** (`source='DEMO'`) *with a
   warning*. Pass `strict=True` to raise instead of degrading silently.
-- **Live / always-DEMO** — CADD is a live API (cache the responses for
-  reproducibility); Pangolin ships as 9 curated DEMO variants only.
+- **Live** — CADD is a live API (cache the responses for reproducibility).
+
+**Pangolin is the odd one out:** it has no precomputed release to download, so
+`build_pangolin.py` **runs the model locally** (weights ship in the pip package; only the
+~215 kb CFTR region is needed, ~4 min on a GPU). Its default scope covers every CFTR2
+variant with GRCh38 coordinates → `source='REAL'`; `--scope curated` scores just the 5
+classic splice alleles and stays `source='DEMO'`. **The label follows the coverage, not
+the model.** Because it is a local run rather than a precomputed *masked-SNV* file, it is
+the only splice tool here that scores indels.
 
 CFTR2 and ClinVar are real *truth sets* (databases), not predictors. Every DataFrame
 a loader returns carries a `source` column (`REAL` / `DEMO`) so the two are never
@@ -316,7 +323,7 @@ unsupervised tools did not).
 | 07 | `notebooks/07_clinvar.ipynb` | ClinVar — crowd-sourced clinical truth set | REAL if cached, else error |
 | 08 | `notebooks/08_cftr2.ipynb` | CFTR2 — disease-specific functional truth set | REAL if built, else DEMO |
 | 09 | `notebooks/09_spliceai.ipynb` | SpliceAI — splice deltas (all CFTR SNVs) | REAL if built, else DEMO |
-| 10 | `notebooks/10_pangolin.ipynb` | Pangolin — independent splice model (`build_pangolin.py` runs it for real) | DEMO scope |
+| 10 | `notebooks/10_pangolin.ipynb` | Pangolin — independent splice model, run locally over all of CFTR2 (`build_pangolin.py`) | REAL if run, else DEMO |
 | 11 | `notebooks/11_cadd.ipynb` | CADD — live deleteriousness score | REAL (live API) |
 | 12 | `notebooks/12_decircularization_benchmark.ipynb` | **circularity & temporal-leakage reference** (which tool can you trust vs which truth set) | — |
 | 13 | `predict/13_cftr2_benchmark.ipynb` | **all tools vs the whole CFTR2 list** — coverage in three parts + per-tool performance | needs the built extracts |
@@ -327,10 +334,11 @@ read only one, read **12** (why a predictor "disagreeing with ClinVar" is only
 sometimes evidence); if you read two, add **13** (what none of these tools can do).
 
 > **`predict/` — the cross-tool pipeline.** [`predict/`](predict/README.md) runs every
-> tool against the full CFTR2 list and writes its results to `outputs/`. It splits the
-> 2,097 CFTR2 variants into **803** scored by a missense tool, **510** by a splice tool
-> only, and **784** scored by nothing at all — ~73% of CF *alleles* once weighted by
-> frequency, because F508del is a deletion. See [`predict/README.md`](predict/README.md).
+> tool against the full CFTR2 list and writes its results to `outputs/`. Only **205** of
+> the 2,097 variants get no score at all — but **953 (45%)** have no tool that addresses
+> *why* they break CFTR, and frequency-weighted that is **~80% of CF alleles**. F508del is
+> the lesson: Pangolin scores it 0.05, correctly saying it is not a splice variant, which
+> tells you nothing about the most common CF allele in the world.
 >
 > **Archived work:** the old A1/A2 *integration* notebook (which reproduced the
 > discordance worklists) has moved to `archive/` (kept locally, **not** shipped). The
@@ -424,9 +432,9 @@ cftr_variant_toolkit/
   (see the REAL/DEMO table). The six build-backed loaders (CFTR2, EVE, ESM1b, REVEL,
   PrimateAI, SpliceAI) become REAL once you run their `build_*.py`; gnomAD,
   AlphaMissense, and ClinVar need `_tmp_fetch/`. Pangolin has no precomputed release,
-  but `build_pangolin.py` runs the real model locally (a curated run stays DEMO by
-  scope). Build the extracts before treating any output as a finding, and check the
-  `source` column.
+  but `build_pangolin.py` runs the real model locally over the whole CFTR2 list
+  (`--scope curated` keeps the 5-allele teaching run at DEMO). Build the extracts
+  before treating any output as a finding, and check the `source` column.
 - The 9 curated splice variants have hand-entered genomic coordinates; **several do
   not match the GRCh38 reference** (notebook 09 shows why they don't reproduce against
   real SpliceAI). One VUS (`c.2657+120C>T`) is an explicitly *synthetic* teaching example.
