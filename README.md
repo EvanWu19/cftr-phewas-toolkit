@@ -272,11 +272,12 @@ Here is what each one actually is, and its corrected real value:
   A1 Priority-1 worklist is **473** (archived integration notebook). (PrimateAI covers only ~53% of
   sites, so some variants are voted by 4 tools not 5; REVEL/PrimateAI carry
   circularity — notebook 12.)
-- **1,094 → 4,260 / 164 HIGH.** "1,094 splice variants scored" originally meant **9
+- **1,094 → 4,535 / 173 HIGH.** "1,094 splice variants scored" originally meant **9
   demo variants** (the other ~1,085 unscored). With the real SpliceAI extract built
-  (notebook 09), **4,260 of the 4,717** observed gnomAD non-coding CFTR variants get a
-  real SpliceAI score, of which **164 are HIGH-impact** (≥0.5) and 82 MODERATE — the
-  real A2 worklist. (Pangolin's `build_pangolin.py` now scores it for real too — see
+  (notebook 09), **4,535 of the 4,717** observed gnomAD non-coding CFTR variants get a
+  real SpliceAI score, of which **173 are HIGH-impact** (≥0.5) and 86 MODERATE — the
+  real A2 worklist. (Was 4,260 / 164 before the indel scores were included.)
+  (Pangolin's `build_pangolin.py` now scores it for real too — see
   notebook 10; the archived integration notebook's A2 section still used the 9
   curated DEMO rows, so build the real join via notebook 09.)
 
@@ -299,8 +300,8 @@ whether it is current or historical. "Source" points at where it is computed.
 | **1,085** | older stated gnomAD non-coding count | 🕰️ stale | old table |
 | **4,717** | gnomAD v4 CFTR **non-coding** variants (intron + synonymous + UTR + splice-region) | ✅ current | nb 01; `gnomad_noncoding.rows` |
 | **1,094** | historical "splice variants scored" (really 9 DEMO scored + ~1,085 unscored) | 🕰️ historical/demo | webpage |
-| **4,260 / 4,717** | non-coding variants that get a **real SpliceAI** score | ✅ current | nb 09 |
-| **164 / 82** | of those 4,260: real SpliceAI HIGH (≥0.5) / MODERATE (0.2–0.5) | ✅ current | nb 09 |
+| **4,535 / 4,717** | non-coding variants that get a **real SpliceAI** score (was 4,260 pre-indels) | ✅ current | nb 09 |
+| **173 / 86** | of those 4,535: real SpliceAI HIGH (≥0.5) / MODERATE (0.2–0.5) | ✅ current | nb 09 |
 | **2.08M** (2,075,730) | all precomputed SpliceAI CFTR records in the built extract: 566,106 SNVs (masked) + 1,509,624 indels (raw) | ✅ current | nb 09; `spliceai.rows` |
 | 9 | hand-curated DEMO splice variants (the A2 teaching table) | 🟡 DEMO | `toolkit.py` |
 

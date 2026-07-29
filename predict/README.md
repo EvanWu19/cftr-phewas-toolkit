@@ -123,8 +123,11 @@ jupyter nbconvert --to notebook --execute --inplace predict/13_cftr2_benchmark.i
   impact"; REVEL emits scores for 12 nonsense variants. That is why performance is reported
   twice, once restricted to each tool's actual domain.
 - **The SpliceAI extract mixes masked SNVs with raw indels**, because Illumina's
-  `masked.indel` release is usually a broken download. Masked and raw agree on 95.8% of CFTR
-  SNVs, but 113 cross the 0.5 cut — check `score_type` before comparing scores across rows.
+  `masked.indel` release is usually a broken download. Masking is an all-or-nothing
+  annotation filter (it zeroes gains at annotated splice sites and losses at unannotated
+  positions), so `raw >= masked` always. Measured: it changes **nothing** in this benchmark —
+  identical sensitivity/specificity, and 0 of 1,311 CFTR2 SNVs cross the 0.5 cut either way.
+  Still check `score_type` before comparing scores across rows. Full working in notebook 09.
 - **The mechanism split is a judgement call**, not a measurement: it assumes a splice model
   says nothing useful about a frameshift unless it actively flags disruption (≥ 0.5). The rule
   is in the notebook (§7) and one cell away from being changed.
