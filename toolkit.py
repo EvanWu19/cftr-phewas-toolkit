@@ -642,18 +642,31 @@ def load_splice_demo() -> pd.DataFrame:
 def load_spliceai(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     """SpliceAI delta scores for CFTR — REAL if the extract exists.
 
-    REAL if the extract exists: the precomputed Illumina **SpliceAI v1.3**
-    masked-SNV scores for the whole CFTR region (`data/spliceai_cftr_2021_v1.3.csv`,
-    ~566k SNVs), built by build_spliceai.py. Keyed by genomic coordinate
-    (chrom,pos,ref,alt); columns DS_AG/DS_AL/DS_DG/DS_DL and spliceai_ds_max
-    (>= 0.5 high, >= 0.2 moderate). Join onto observed variants (e.g. gnomAD
-    non-coding) by coordinate to build the real A2 splice worklist.
+    REAL if the extract exists: the precomputed Illumina **SpliceAI v1.3** scores for
+    the whole CFTR region (`data/spliceai_cftr_2021_v1.3.csv`, ~2.08 M records), built
+    by build_spliceai.py. Keyed by genomic coordinate (chrom,pos,ref,alt); columns
+    DS_AG/DS_AL/DS_DG/DS_DL and spliceai_ds_max (>= 0.5 high, >= 0.2 moderate). Join
+    onto observed variants (e.g. gnomAD non-coding) by coordinate to build the real A2
+    splice worklist.
+
+    **SNVs *and* indels** (~566 k + ~1.51 M). The indels matter: no missense predictor
+    can score one, so without them every CFTR2 deletion/insertion was invisible to every
+    tool — including F508del, which SpliceAI scores DS_max = 0.01 (correct: it is a
+    folding defect, not a splice one). See notebook 13.
+
+    ⚠ The extract is usually **MIXED masked/raw**: Illumina's `masked.indel` release is
+    very often a 0-byte failed download, so the builder falls back to `raw.indel` while
+    SNVs come from `masked.snv`. Each row carries `score_type` ('masked'/'raw') and
+    `variant_class` ('snv'/'indel'). Raw does not zero out biologically implausible
+    directions, so raw >= masked for the same variant: across the CFTR SNVs the two
+    agree exactly 95.8% of the time (mean |diff| 0.0019), but 113 cross the 0.5 cut.
+    Don't compare a masked score against a raw one and call the difference biology.
 
     The extract is gitignored (CC BY-NC 4.0) → fresh clone falls back to the 9
     curated variants (load_splice_demo) with a warning; strict=True raises,
     demo=True is silent. Note those hand-entered coordinates mostly do NOT
-    reproduce against real precomputed SpliceAI (coordinate errors + masked
-    deep-intronic coverage limits).
+    reproduce against real precomputed SpliceAI (coordinate errors + limited
+    deep-intronic coverage in the precomputed release).
 
     LICENSE: SpliceAI scores are CC BY-NC 4.0 (Jaganathan et al. 2019, PMID
     30661751). The 28.6 GB source VCF stays external; cite SpliceAI + Illumina.
@@ -677,12 +690,21 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     reference region is needed, no whole-genome download). Score 0-1, >= 0.5 high,
     >= 0.2 moderate; keyed by genomic coordinate.
 
-    REAL if the extract exists (``data/pangolin_cftr.csv``). NOTE: a small curated
-    run (e.g. the classic CF splice alleles) is genuine model output but is labelled
-    ``source='DEMO'`` by build_pangolin.py because its *coverage* is not a real-scale
-    worklist — promote to REAL only when run over a real target set. If the file is
-    absent this falls back to the hand-authored splice-demo pangolin values (with a
-    warning; strict=True raises).
+    REAL if the extract exists (``data/pangolin_cftr.csv``). ``build_pangolin.py
+    --scope cftr2`` (the default) scores every CFTR2 variant carrying GRCh38
+    coordinates — ~1,892 of 2,097, **SNVs and indels** — and labels the result
+    ``source='REAL'``; ``--scope curated`` scores just the 5 classic splice alleles
+    and stays ``source='DEMO'``, because that coverage is a teaching subset rather
+    than a worklist. The label follows the *scope*, never the model. Rows that could
+    not be scored are kept with an empty score and a ``skip_reason``.
+
+    Because Pangolin is run locally it reaches variant classes the precomputed
+    masked-SNV SpliceAI release cannot (notably indels) — but see notebook 13: a
+    Pangolin score on a frameshift is a *splice* verdict, and "no splice impact" is
+    usually correct and rarely the reason the variant is pathogenic.
+
+    If the file is absent this falls back to the hand-authored splice-demo pangolin
+    values (with a warning; strict=True raises).
     """
     if not demo and PANGOLIN_CSV.exists():
         df = pd.read_csv(PANGOLIN_CSV)
