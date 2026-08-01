@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this toolkit, please cite it as below, and cite the underlying data sources (see data_manifest.json)."
+title: "CFTR Variant Toolkit"
+abstract: >-
+  A provenance-honest, teaching-oriented walkthrough of the computational tools
+  used to interpret CFTR variants: missense pathogenicity predictors, splice
+  predictors, population-frequency references, and clinical/functional truth sets.
+type: software
+authors:
+  - given-names: Runyu
+    family-names: Wu
+    email: evan891022@gmail.com
+    # Update name/affiliation/ORCID as needed.
+repository-code: "https://github.com/EvanWu19/cftr-phewas-toolkit"
+url: "https://github.com/EvanWu19/cftr-phewas-toolkit"
+license: MIT
+keywords:
+  - CFTR
+  - cystic fibrosis
+  - variant interpretation
+  - in silico prediction
+  - AlphaMissense
+  - SpliceAI
+  - bioinformatics

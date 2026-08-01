@@ -1,0 +1,32 @@
+MIT License
+
+Copyright (c) 2026 Runyu Wu (github.com/EvanWu19)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+------------------------------------------------------------------------------
+SCOPE NOTICE — this license covers FIRST-PARTY WORK ONLY
+------------------------------------------------------------------------------
+This MIT license applies to the original code, notebooks, build scripts, and
+documentation in this repository. It does NOT grant any rights to third-party
+datasets or model outputs that the build_*.py / fetch_* scripts download or
+compute (AlphaMissense, gnomAD, ClinVar, CFTR2, EVE, ESM1b, REVEL, PrimateAI /
+dbNSFP, SpliceAI, Pangolin, CADD). Each of those carries its own license — see
+data_manifest.json, DATA_LICENSING_CONCERNS.md, and PUBLISHING.md. A permissive
+license on this repository cannot and does not re-license third-party data.
