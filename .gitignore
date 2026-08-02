@@ -15,6 +15,11 @@ data/*
 outputs/
 _tmp_fetch/
 
+# ── PLAN: internal planning / strategy / review notes, NOT published ───────
+# Working docs (licensing review, publishing strategy, tool design, lay-reader
+# review). Kept locally for reference; never pushed to GitHub.
+plan/
+
 # ── ARCHIVE: superseded work kept locally, NOT pushed ──────────────────────
 # The old integration notebook (A1/A2 reproduction) lives here; real genome-wide
 # prediction moves to a dedicated predict/ pipeline (roadmap). Kept for reference.

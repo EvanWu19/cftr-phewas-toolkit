@@ -15,14 +15,15 @@ predict (13, in [`predict/`](predict/README.md)).
 ---
 
 > ## 📦 Data is NOT included in this repo
-> This repository ships **code + notebooks + build scripts + a data manifest only**.
-> Every dataset (raw sources *and* the derived per-CFTR score extracts) is
-> license-restricted / non-commercial — SpliceAI CC BY-NC, REVEL non-commercial,
-> **PrimateAI/dbNSFP CC BY-NC-ND**, AlphaMissense CC BY-NC-SA, EVE per-publication,
-> CFTR2 data-use terms — and is **not redistributed here**. Regenerate each extract
-> locally with the `build_*.py` scripts from your own downloads; `data_manifest.json`
-> lists the exact source, version, and checksum. Committed notebooks keep their
-> outputs so you can *read* the results; to *re-run*, fetch the data first.
+> This repository ships **code + notebooks + build scripts + a data manifest only**,
+> and redistributes **no** third-party data. Sources span a range of licenses —
+> permissive (AlphaMissense CC BY 4.0, gnomAD ODbL, ClinVar CC0) through restricted
+> (SpliceAI CC BY-NC, REVEL non-commercial, **PrimateAI/dbNSFP CC BY-NC-ND**, EVE
+> per-publication). Regenerate each extract locally with the `build_*.py` scripts from
+> your own downloads; `data_manifest.json` lists the exact source, version, checksum,
+> and license, and **[`DATA_USE.md`](DATA_USE.md)** summarizes what may be reused and
+> how to attribute it. Committed notebooks keep their outputs so you can *read* the
+> results; to *re-run*, fetch the data first.
 
 ## ⚠️ Read this first: REAL vs DEMO — and what a fresh clone ships
 
