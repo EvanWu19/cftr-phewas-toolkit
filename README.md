@@ -467,10 +467,13 @@ cftr_variant_toolkit/
 - The 9 curated splice variants have hand-entered genomic coordinates; **several do
   not match the GRCh38 reference** (tools/07 shows why they don't reproduce against
   real SpliceAI). One VUS (`c.2657+120C>T`) is an explicitly *synthetic* teaching example.
-- **Reproducibility caveats:** ClinVar's release is **unpinned** (it updates ~weekly
-  and drives the A1 VUS/discordance counts — record the exact release you use), and
-  CADD is a **live API** (cache responses, or a rerun can change/fail on network
-  behaviour rather than biology). Both are noted in `data_manifest.json`.
+- **Reproducibility caveats:** ClinVar updates ~weekly and the *default* fetch
+  (`CLINVAR_RELEASE = "latest"`) tracks that rolling file — every fetch records
+  its resolved version into `clinvar_release`, and `benchmark/00_clinvar.ipynb`
+  can pin a specific `YYYY-MM` from NCBI's monthly archive instead if you need
+  an exact historical release. CADD is a **live API** (cache responses, or a
+  rerun can change/fail on network behaviour rather than biology). Both are
+  noted in `data_manifest.json`.
 - The A1 discordance list did **not** apply a training-cutoff temporal hold-out;
   **tools/10** (the circularity / temporal-leakage reference) explains how, and flags
   which tool×variant pairs risk leakage (e.g. F508del, reported 1989, vs any

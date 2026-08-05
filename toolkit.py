@@ -280,26 +280,49 @@ def load_clinvar() -> pd.DataFrame:
     crucially, some predictors were TRAINED on ClinVar-lineage labels, so
     comparing those predictors to ClinVar is partly circular (see tools/10).
 
-    Returns: protein_variant, clinvar_sig, review_status, clinvar_call, source.
-    `clinvar_call` collapses the free-text significance to pathogenic/benign/
-    uncertain via cv_class().
-    Thin reader only: the fetch (streams NCBI's variant_summary.txt.gz and
-    filters to GeneSymbol=='CFTR', Assembly=='GRCh38') lives in
-    benchmark/00_clinvar.ipynb -> data/clinvar_cftr.tsv. ClinVar updates
-    ~weekly and is otherwise unpinned — record the exact retrieval date.
+    Returns EVERY CFTR/GRCh38 row ClinVar has (~6,100+, not just the ones with
+    a simple missense name) — protein_variant is '' for anything that doesn't
+    reduce to a single-residue missense change. Columns:
+      variation_id    ClinVar's own stable ID (dedup key)
+      hgvs_name        the raw combined HGVS Name, e.g.
+                       'NM_000492.4(CFTR):c.1521_1523del (p.Phe508del)'
+      protein_variant 1-letter missense key (e.g. 'G551D'), '' if not applicable
+      clinvar_sig      RAW ClinicalSignificance text — no collapsing/interpretation
+      clinsig_simple   ClinVar's OWN simplified flag (not ours): 1 = has >=1
+                       Pathogenic/Likely pathogenic (or risk-allele) submission,
+                       0 = no such submission, -1 = no clinical significance data
+                       at all. NOT a 3-way split — 0 covers Benign, VUS, and
+                       "not provided" alike; see the notebook for why we do not
+                       collapse these ourselves.
+      variant_type     ClinVar's structural Type (SNV/Deletion/Insertion/...) --
+                       structural, not molecular consequence; see benchmark/00
+                       for deriving missense/nonsense/splice/etc from hgvs_name.
+      review_status, clinvar_release, source
+    Thin reader only: the fetch (streams NCBI's variant_summary.txt.gz, with a
+    pinnable release, and filters to GeneSymbol=='CFTR', Assembly=='GRCh38')
+    lives in benchmark/00_clinvar.ipynb -> data/clinvar_cftr.tsv +
+    data/clinvar_cftr.release.json.
     """
     fp = DATA_DIR / "clinvar_cftr.tsv"
     if not fp.exists():
         raise FileNotFoundError(f"{fp} missing. Run the fetch cell in benchmark/00_clinvar.ipynb.")
     df = pd.read_csv(fp, sep="\t", low_memory=False)
-    df["protein_variant"] = df["Name"].apply(extract_hgvsp_from_name)
-    df = df.dropna(subset=["protein_variant"]).drop_duplicates("protein_variant")
+    df["protein_variant"] = df["Name"].apply(extract_hgvsp_from_name).fillna("")
     out = pd.DataFrame({
+        "variation_id":   df.get("VariationID"),
+        "hgvs_name":      df["Name"],
         "protein_variant": df["protein_variant"],
-        "clinvar_sig":     df["ClinicalSignificance"],
-        "review_status":   df.get("ReviewStatus"),
+        "clinvar_sig":    df["ClinicalSignificance"],
+        "clinsig_simple": df.get("ClinSigSimple"),
+        "variant_type":   df.get("Type"),
+        "review_status":  df.get("ReviewStatus"),
     })
-    out["clinvar_call"] = out["clinvar_sig"].apply(cv_class)
+    release_fp = DATA_DIR / "clinvar_cftr.release.json"
+    if release_fp.exists():
+        import json
+        out["clinvar_release"] = json.loads(release_fp.read_text())["resolved_version"]
+    else:
+        out["clinvar_release"] = "unknown (pre-dates release tracking; re-run the fetch cell)"
     out["source"] = "REAL"
     return out.reset_index(drop=True)
 
@@ -725,20 +748,6 @@ def call_from_score(score, tool: str) -> str:
         if score <= t["path"]:
             return "pathogenic"
         return "benign" if score > t["benign"] else "uncertain"
-
-
-def cv_class(sig) -> str:
-    """Collapse ClinVar free-text significance to pathogenic/benign/uncertain."""
-    if sig is None or (isinstance(sig, float) and np.isnan(sig)):
-        return "unknown"
-    s = str(sig).lower()
-    if "conflicting" in s:
-        return "uncertain"
-    if "pathogenic" in s:
-        return "pathogenic"
-    if "benign" in s:
-        return "benign"
-    return "uncertain"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

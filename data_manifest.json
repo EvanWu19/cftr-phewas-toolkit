@@ -46,14 +46,14 @@
     "clinvar": {
       "notebook": "benchmark/00",
       "kind": "live_fetch",
-      "sha256": "988f636483afd7a61bd3095dee1e44a091b8ad04c57b150967f1170b2b80c84e",
+      "sha256": "PENDING-rebuild (schema changed: now keeps every row + Type/ClinSigSimple; run verify_data.py --update after fetching)",
       "built_by": "benchmark/00_clinvar.ipynb (fetch cell)",
-      "source": "ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz",
-      "version": "ClinVar release date UNPINNED \u2014 record the exact release (plan R28)",
+      "source": "ftp.ncbi.nlm.nih.gov/pub/clinvar/tab_delimited/variant_summary.txt.gz (or archive/variant_summary_YYYY-MM.txt.gz for a pinned release)",
+      "version": "Pinnable: CLINVAR_RELEASE='latest' (default, dated via HTTP Last-Modified and recorded in data/clinvar_cftr.release.json) or a specific 'YYYY-MM' resolved to NCBI's monthly archive.",
       "license": "CC0 1.0 / U.S. public domain; NCBI places no use/distribution restrictions, attribution requested, don't imply endorsement. Verified 2026-07-31.",
       "publishable": "yes",
-      "note": "ClinVar updates ~weekly; the pinned release drives the A1 VUS set. Pin the release date when you publish an extract.",
-      "rows": 6101,
+      "note": "ClinVar updates ~weekly; every fetch records its resolved version into data/clinvar_cftr.release.json and the clinvar_release column. All CFTR/GRCh38 rows are kept (not just missense) -- includes VariationID, Name, Type, ClinicalSignificance, ClinSigSimple, ReviewStatus.",
+      "rows": "~6,100+ (drifts by design; see version field)",
       "local_file": "data/clinvar_cftr.tsv"
     },
     "cftr2": {
