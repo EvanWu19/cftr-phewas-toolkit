@@ -1,6 +1,6 @@
 # `predict/` — running every tool against the whole CFTR2 list
 
-`notebooks/00–12` introduce one tool each. This folder does the cross-tool step: take the
+`tools/00–10` and `benchmark/00–01` introduce one tool each. This folder does the cross-tool step: take the
 **full public CFTR2 variant list as the benchmark**, run every predictor in `toolkit.py`
 against it, and report both **coverage** (does a prediction exist at all?) and
 **performance** (is it right?).
@@ -41,13 +41,14 @@ answer to the wrong question is still no answer.
 
 ## Both splice tools now score indels — and what that bought
 
-- **SpliceAI**: `build_spliceai.py` reads Illumina's precomputed **`raw.indel`** release
-  alongside the masked SNVs → 1.51 M CFTR indel records, 417 of the 713 CFTR2 indels.
-  (`masked.indel` is commonly a 0-byte failed download, so the extract is **mixed
-  masked/raw** — rows carry `score_type`; see notebook 09 for the size of that seam.)
-- **Pangolin**: no precomputed release exists, so `build_pangolin.py` runs the model over
-  every CFTR2 variant with GRCh38 coordinates (~1,892 of 2,097, ~4 min on a GPU) — 575 of
-  the 713 indels.
+- **SpliceAI**: `tools/07_spliceai.ipynb`'s build cell reads Illumina's precomputed
+  **`raw.indel`** release alongside the masked SNVs → 1.51 M CFTR indel records, 417 of
+  the 713 CFTR2 indels. (`masked.indel` is commonly a 0-byte failed download, so the
+  extract is **mixed masked/raw** — rows carry `score_type`; see tools/07 for the size
+  of that seam.)
+- **Pangolin**: no precomputed release exists, so `tools/08_pangolin.ipynb`'s build cell
+  runs the model over every CFTR2 variant with GRCh38 coordinates (~1,892 of 2,097, ~4
+  min on a GPU) — 575 of the 713 indels.
 
 That reach is mostly an illusion. It moved ~580 indels out of "no score" and only **52** into
 "mechanism addressed"; on indels the two score **0.04** and **0.05** sensitivity, missing 365
@@ -95,13 +96,14 @@ Written to `../outputs/` (gitignored — regenerated, never committed):
 ## Requirements
 
 All **REAL data** — including Pangolin, now that it is run at CFTR2 scale. The notebook needs
-these extracts built first; see [`../data/README.md`](../data/README.md):
+these extracts built first, by running the fetch/build cell in each tool's own notebook; see
+[`../data/README.md`](../data/README.md):
 
-- `data/cftr2_2026-01-30.csv` (`build_cftr2.py`) — the benchmark itself, required
+- `data/cftr2_2026-01-30.csv` (`benchmark/01_cftr2.ipynb`) — the benchmark itself, required
 - `data/eve_cftr_2021-08.csv`, `esm1b_cftr.csv`, `revel_cftr_v1.3.csv`, `primateai_cftr.csv`,
-  `spliceai_cftr_2021_v1.3.csv` — one `build_*.py` each
-- `data/pangolin_cftr.csv` — `python build_pangolin.py` (runs the model; ~4 min on a GPU)
-- `_tmp_fetch/alphamissense_cftr.tsv` — cache-backed
+  `spliceai_cftr_2021_v1.3.csv` — one manual-download build cell each (`tools/03`–`tools/07`)
+- `data/pangolin_cftr.csv` — `tools/08_pangolin.ipynb`'s build cell (runs the model; ~4 min on a GPU)
+- `data/alphamissense_cftr.tsv` — `tools/02_alphamissense.ipynb`'s fetch cell (live query)
 - network access for the live CADD v1.7 API (§10; it reaches none of the remaining gap, which
   is itself the finding)
 
@@ -116,7 +118,7 @@ jupyter nbconvert --to notebook --execute --inplace predict/13_cftr2_benchmark.i
 ## Caveats that bound every number here
 
 - **CFTR2 is not independent of ClinVar** — they cross-cite, and REVEL is trained on
-  ClinVar-lineage labels, so REVEL's agreement is partly circular (notebook 12).
+  ClinVar-lineage labels, so REVEL's agreement is partly circular (tools/10).
 - **42 negatives.** CFTR2 has ~1,245 CF-causing vs ~42 Non CF-causing variants, so specificity
   is noisy and accuracy is close to meaningless. Rank by sensitivity.
 - **Coverage ≠ competence** — the splice tools call ~95% of CF-causing indels "no splice
@@ -127,7 +129,7 @@ jupyter nbconvert --to notebook --execute --inplace predict/13_cftr2_benchmark.i
   annotation filter (it zeroes gains at annotated splice sites and losses at unannotated
   positions), so `raw >= masked` always. Measured: it changes **nothing** in this benchmark —
   identical sensitivity/specificity, and 0 of 1,311 CFTR2 SNVs cross the 0.5 cut either way.
-  Still check `score_type` before comparing scores across rows. Full working in notebook 09.
+  Still check `score_type` before comparing scores across rows. Full working in tools/07.
 - **The mechanism split is a judgement call**, not a measurement: it assumes a splice model
   says nothing useful about a frameshift unless it actively flags disruption (≥ 0.5). The rule
   is in the notebook (§7) and one cell away from being changed.

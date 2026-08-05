@@ -1,9 +1,20 @@
 """
 cftr_variant_toolkit / toolkit.py
 =================================
-A small, heavily-documented library of loaders for the variant-effect
-prediction tools used in the CFTR PheWAS variant-interpretation work
-(the A1 missense-triage and A2 splice-discordance analyses).
+The small set of constants and helpers genuinely SHARED across notebooks:
+published thresholds, the tool/circularity registry, score->call logic, the
+curated DEMO panel, and amino-acid key helpers — plus a thin load_<tool>()
+reader per dataset (read data/<file>, tag source, DEMO fallback).
+
+This file deliberately does NOT contain fetch/build logic anymore. Each
+dataset's fetch-or-build code (how data/<file> gets created in the first
+place — a live API call, a filtered download, or a locally-run model) lives
+in the ONE notebook that owns that tool (tools/00-10, benchmark/00-01), right
+next to the loader call and the license/provenance note for that source. That
+used to be split across this file's docstrings, seven build_*.py scripts, and
+two fetch_*.py scripts that were referenced everywhere but never committed —
+opaque provenance masquerading as documentation. Read a tool's own notebook
+to see exactly how its data was obtained; there is nowhere else to look.
 
 Design goals
 ------------
@@ -12,39 +23,42 @@ Design goals
     primary source / queried live) or ``"DEMO"`` (a small, hand-curated table of
     illustrative values baked into this file). Never mix them silently.
 
-2.  **Reuse the cache.** The heavy real datasets (AlphaMissense genome-wide,
-    ClinVar variant_summary, gnomAD queries) were already downloaded into the
-    project ``_tmp_fetch/`` cache. The ``load_*`` functions read those cached
-    extracts so the notebooks produce genuine results without re-downloading
-    ~1 GB. If the cache is missing, each function's docstring tells you exactly
-    how to regenerate it.
+2.  **One data/ folder, no hidden cache.** Every dataset — whether pulled live
+    from an API, filtered from a bulk download, or produced by running a model
+    locally — lands in ``data/`` once its owning notebook's fetch cell has run.
+    There is no separate ``_tmp_fetch/`` cache; a loader either finds its file
+    in ``data/`` or falls back to DEMO (or raises, for the three live-queried
+    sources that have no DEMO fallback).
 
 3.  **Beginner-readable.** Each function documents *what the tool is*, *what the
     score means*, *the threshold and why*, and *the primary reference*.
 
 Real vs demo — and what a fresh clone actually ships
 ----------------------------------------------------
-    IMPORTANT: this repo ships CODE + NOTEBOOKS + build scripts + manifest ONLY.
-    ``data/``, ``outputs/`` and ``_tmp_fetch/`` are gitignored, so a fresh clone
-    contains NONE of the datasets below. "REAL" describes what a loader returns
-    *once you have built/cached its extract locally* — not what is in the box.
+    IMPORTANT: this repo ships CODE + NOTEBOOKS + manifest ONLY. ``data/`` and
+    ``outputs/`` are gitignored, so a fresh clone contains NONE of the datasets
+    below. "REAL" describes what a loader returns *once its owning notebook's
+    fetch cell has been run* — not what is in the box.
 
     On a fresh clone, each loader behaves as:
-      REAL only after you populate ``_tmp_fetch/`` (else FileNotFoundError):
-        gnomAD v4 missense + non-coding, AlphaMissense (CFTR), ClinVar (CFTR)
-      REAL only after you build the ``data/*.csv`` extract, else DEMO fallback:
-        CFTR2 (~2,097), EVE (~26,809), ESM1b (~28,120 saturation),
-        REVEL (~10,826 saturation; non-commercial), PrimateAI (~1,976, dbNSFP
-        ClinVar subset; non-commercial), SpliceAI (~566k SNVs; CC BY-NC 4.0)
+      REAL only after you run the fetch cell in its notebook (else FileNotFoundError):
+        gnomAD v4 missense + non-coding (tools/01), AlphaMissense (tools/02),
+        ClinVar (benchmark/00) — each queries/downloads live, no DEMO fallback
+      REAL only after you run the build cell in its notebook, else DEMO fallback:
+        CFTR2 (~2,097, benchmark/01), EVE (~26,809, tools/03),
+        ESM1b (~28,120 saturation, tools/04), REVEL (~10,127 unique coordinates,
+        non-commercial, tools/05), PrimateAI (~1,976, dbNSFP ClinVar subset,
+        non-commercial, tools/06), SpliceAI (~566k SNVs; CC BY-NC 4.0, tools/07)
       REAL, queried live per-call (no local data needed):
-        CADD v1.7 REST API
+        CADD v1.7 REST API (tools/09)
       DEMO always (hand-curated illustrative values — NOT real predictions):
-        Pangolin (9 curated splice variants only)
+        Pangolin (9 curated splice variants only; tools/08 also has a REAL
+        model-run path over the full CFTR2 list)
 
     => The six build-locally loaders fall back to a tiny DEMO table when their
        extract is missing. Pass ``strict=True`` to raise instead of silently
-       degrading; the default emits a warning. See ``data/README.md`` for how to
-       fetch and build every extract, and ``data_manifest.json`` for provenance.
+       degrading; the default emits a warning. See ``data/README.md`` for the
+       provenance summary and ``data_manifest.json`` for exact hashes/licenses.
 
 References
 ----------
@@ -61,41 +75,27 @@ References
 from __future__ import annotations
 
 import re
-import time
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Paths
+# Paths — ONE data/ folder for every dataset (no _tmp_fetch/ cache anymore)
 # ─────────────────────────────────────────────────────────────────────────────
-# toolkit.py lives in  <project>/05_analysis/cftr_variant_toolkit/
-# the shared download cache lives in  <project>/_tmp_fetch/
-PKG_DIR    = Path(__file__).resolve().parent
-# self-contained: the loader cache lives inside the toolkit (moves with it)
-CACHE_DIR  = PKG_DIR / "_tmp_fetch"
-OUT_DIR    = PKG_DIR / "outputs"
+PKG_DIR  = Path(__file__).resolve().parent
+DATA_DIR = PKG_DIR / "data"           # gitignored; built by each notebook's fetch/build cell
+OUT_DIR  = PKG_DIR / "outputs"
 OUT_DIR.mkdir(exist_ok=True)
-# Build-backed extracts below live under data/ (GITIGNORED — not committed; build
-# them locally, see data/README.md). Each loader falls back to DEMO if its CSV is
-# absent. CFTR2 release, built from the official cftr2.org variant list by build_cftr2.py.
-CFTR2_CSV  = PKG_DIR / "data" / "cftr2_2026-01-30.csv"
-# REAL EVE CFTR extract (Frazer 2021 release), built by build_eve.py from
-# EVE_all_data.zip. Small; per-variant EVE scores keyed by protein_variant.
-EVE_CSV    = PKG_DIR / "data" / "eve_cftr_2021-08.csv"
-# REAL SpliceAI CFTR extract (Illumina precomputed v1.3, masked SNV), built by
-# build_spliceai.py from the 28.6 GB BaseSpace VCF. CC BY-NC 4.0.
-SPLICEAI_CSV = PKG_DIR / "data" / "spliceai_cftr_2021_v1.3.csv"
-# REAL ESM1b (full CFTR saturation), REVEL (saturation), PrimateAI (dbNSFP subset)
-ESM1B_CSV    = PKG_DIR / "data" / "esm1b_cftr.csv"
-REVEL_CSV    = PKG_DIR / "data" / "revel_cftr_v1.3.csv"
-PRIMATEAI_CSV = PKG_DIR / "data" / "primateai_cftr.csv"
-# REAL Pangolin scores, produced by running the model locally (build_pangolin.py).
-# Coverage depends on the target set run; a small curated run stays source='DEMO'.
-PANGOLIN_CSV = PKG_DIR / "data" / "pangolin_cftr.csv"
+
+CFTR2_CSV     = DATA_DIR / "cftr2_2026-01-30.csv"           # benchmark/01
+EVE_CSV       = DATA_DIR / "eve_cftr_2021-08.csv"            # tools/03
+SPLICEAI_CSV  = DATA_DIR / "spliceai_cftr_2021_v1.3.csv"     # tools/07
+ESM1B_CSV     = DATA_DIR / "esm1b_cftr.csv"                  # tools/04
+REVEL_CSV     = DATA_DIR / "revel_cftr_v1.3.csv"              # tools/05
+PRIMATEAI_CSV = DATA_DIR / "primateai_cftr.csv"               # tools/06
+PANGOLIN_CSV  = DATA_DIR / "pangolin_cftr.csv"                # tools/08
 
 # CFTR locus, GRCh38. CFTR is on the PLUS (forward) strand of chromosome 7 (7q31.2),
 # so cDNA/coding alleles read the same as the genomic ref/alt — no complementing.
@@ -109,7 +109,7 @@ CFTR_MANE_TX = "NM_000492.4"       # MANE Select transcript
 # ─────────────────────────────────────────────────────────────────────────────
 # NB: these are deliberately *simple* single cut-points taken from each tool's
 # calibration paper. Real ACMG use (esp. REVEL) applies GRADED thresholds for
-# different evidence strengths — see notebook 05 and Pejaver 2022.
+# different evidence strengths — see tools/05 and Pejaver 2022.
 THRESHOLDS = {
     # higher score = more pathogenic
     "am":         {"path": 0.564, "benign": 0.340},   # AlphaMissense class cuts
@@ -165,7 +165,7 @@ TOOL_REGISTRY = {
 }
 
 # Publication / training-freeze year per tool — the anchor for the temporal-leakage
-# reference (notebook 12). A variant's clinical label can only leak into a tool if the
+# reference (tools/10). A variant's clinical label can only leak into a tool if the
 # tool's training data postdates the variant's first pathogenic report AND the tool
 # learned from clinical labels. `label_supervised` marks the tools where a post-report
 # training year is a *direct* leakage risk (REVEL); unsupervised/proxy tools carry only
@@ -197,15 +197,15 @@ def load_gnomad_missense() -> pd.DataFrame:
     Returns columns: variant_id, hgvs_c, hgvs_p, protein_variant, consequence,
     gnomad_af, source. One row per missense variant (~2,466).
 
-    Cache: _tmp_fetch/gnomad_cftr_missense.tsv
-    Regenerate: gnomAD GraphQL API, gene ENSG00000001626, dataset gnomad_r4,
-      keep consequence == 'missense_variant'. (See fetch_scores.fetch_gnomad_cftr)
+    Thin reader only: the gnomAD GraphQL fetch that builds
+    data/gnomad_cftr_missense.tsv lives in tools/01_gnomad.ipynb (no precomputed
+    per-gene download exists, so the notebook queries the live API directly).
     """
-    fp = CACHE_DIR / "gnomad_cftr_missense.tsv"
+    fp = DATA_DIR / "gnomad_cftr_missense.tsv"
     if not fp.exists():
         raise FileNotFoundError(
-            f"{fp} missing. Query the gnomAD v4 GraphQL API for CFTR "
-            "(ENSG00000001626) missense variants — see docstring.")
+            f"{fp} missing. Run the fetch cell in tools/01_gnomad.ipynb "
+            "(queries the gnomAD v4 GraphQL API live; no download needed).")
     df = pd.read_csv(fp, sep="\t", low_memory=False)
     df = df.rename(columns={"hgvsc": "hgvs_c", "hgvsp": "hgvs_p"})
     df["protein_variant"] = df["hgvs_p"].apply(hgvsp_to_short)
@@ -221,11 +221,13 @@ def load_gnomad_noncoding() -> pd.DataFrame:
     missense predictors CANNOT see: intronic, synonymous, UTR, splice-region.
     These are the substrate for the A2 splice analysis.
 
-    Cache: _tmp_fetch/gnomad_cftr_noncoding.tsv  (~1,085 variants)
+    Thin reader only: fetched by the same cell as load_gnomad_missense(), in
+    tools/01_gnomad.ipynb -> data/gnomad_cftr_noncoding.tsv (~4,717 variants).
     """
-    fp = CACHE_DIR / "gnomad_cftr_noncoding.tsv"
+    fp = DATA_DIR / "gnomad_cftr_noncoding.tsv"
     if not fp.exists():
-        raise FileNotFoundError(f"{fp} missing — see docstring / fetch_splice_scores.py")
+        raise FileNotFoundError(
+            f"{fp} missing. Run the fetch cell in tools/01_gnomad.ipynb.")
     df = pd.read_csv(fp, sep="\t", low_memory=False)
     df["source"] = "REAL"
     return df
@@ -241,24 +243,22 @@ def load_alphamissense() -> pd.DataFrame:
     predictor. It is *unsupervised* w.r.t. clinical labels — trained on protein
     sequences/structures plus weak population-frequency calibration, NOT on
     ClinVar pathogenic/benign labels. That is why it is a good tool to compare
-    *against* ClinVar without circular reasoning (see notebook 12).
+    *against* ClinVar without circular reasoning (see tools/10).
 
     Score `am_pathogenicity` in [0,1]; AlphaMissense's own 3-class cut-points:
         >= 0.564  -> "likely_pathogenic"
         <= 0.340  -> "likely_benign"
         else      -> "ambiguous"
 
-    Returns: protein_variant, am_score, am_class, source (~2,460 rows).
-    Cache: _tmp_fetch/alphamissense_cftr.tsv  (extracted from the 0.6 GB
-      AlphaMissense_hg38.tsv.gz, filtered to UniProt P13569).
-    Regenerate: tabix the genome-wide AlphaMissense_hg38.tsv.gz to the CFTR
-      region and keep uniprot_id == 'P13569'.
+    Returns: protein_variant, am_score, am_class, source (~8,597 rows).
+    Thin reader only: the fetch (streams DeepMind's genome-wide
+    AlphaMissense_hg38.tsv.gz and filters to UniProt P13569) lives in
+    tools/02_alphamissense.ipynb -> data/alphamissense_cftr.tsv.
     """
-    fp = CACHE_DIR / "alphamissense_cftr.tsv"
+    fp = DATA_DIR / "alphamissense_cftr.tsv"
     if not fp.exists():
         raise FileNotFoundError(
-            f"{fp} missing. Download AlphaMissense_hg38.tsv.gz and filter to "
-            "UniProt P13569 — see docstring.")
+            f"{fp} missing. Run the fetch cell in tools/02_alphamissense.ipynb.")
     df = pd.read_csv(fp, sep="\t", low_memory=False)
     # collapse multiple codon changes giving the same protein change → 1 row
     df = (df.sort_values("am_pathogenicity", ascending=False)
@@ -278,16 +278,19 @@ def load_clinvar() -> pd.DataFrame:
     Conflicting) submitted by labs. It is the de-facto clinical "truth" set —
     but treat it with care: assertions vary in review status (star rating) and,
     crucially, some predictors were TRAINED on ClinVar-lineage labels, so
-    comparing those predictors to ClinVar is partly circular (notebook 12).
+    comparing those predictors to ClinVar is partly circular (see tools/10).
 
     Returns: protein_variant, clinvar_sig, review_status, clinvar_call, source.
     `clinvar_call` collapses the free-text significance to pathogenic/benign/
     uncertain via cv_class().
-    Cache: _tmp_fetch/clinvar_cftr.tsv  (filtered from ClinVar variant_summary).
+    Thin reader only: the fetch (streams NCBI's variant_summary.txt.gz and
+    filters to GeneSymbol=='CFTR', Assembly=='GRCh38') lives in
+    benchmark/00_clinvar.ipynb -> data/clinvar_cftr.tsv. ClinVar updates
+    ~weekly and is otherwise unpinned — record the exact retrieval date.
     """
-    fp = CACHE_DIR / "clinvar_cftr.tsv"
+    fp = DATA_DIR / "clinvar_cftr.tsv"
     if not fp.exists():
-        raise FileNotFoundError(f"{fp} missing — filter ClinVar variant_summary.txt.gz to CFTR.")
+        raise FileNotFoundError(f"{fp} missing. Run the fetch cell in benchmark/00_clinvar.ipynb.")
     df = pd.read_csv(fp, sep="\t", low_memory=False)
     df["protein_variant"] = df["Name"].apply(extract_hgvsp_from_name)
     df = df.dropna(subset=["protein_variant"]).drop_duplicates("protein_variant")
@@ -302,50 +305,11 @@ def load_clinvar() -> pd.DataFrame:
 
 
 # =============================================================================
-# 4. CADD — live REST API (REAL, per-variant)
-# =============================================================================
-def fetch_cadd(chrom: str, pos: int, ref: str, alt: str,
-               delay_sec: float = 0.3) -> dict:
-    """Score ONE variant with the CADD v1.7 REST API (REAL, live).
-
-    CADD (Combined Annotation Dependent Depletion) integrates dozens of
-    annotations into one deleteriousness score. The PHRED-scaled value is the
-    handy one: PHRED >= 15 means "top ~3% most deleterious of all possible
-    variants"; >= 20 means top 1%. CADD v1.7 folds in some splice features.
-
-    NOTE ON STRAND: CFTR is on the genomic PLUS strand (7q31.2), so a coding
-    change (e.g. C>T) is reported on the genome as the SAME alleles (C>T) — no
-    complementing is needed. This helper still falls back to trying the
-    complement, purely as a guard against upstream tables that (wrongly, for
-    CFTR) report minus-strand alleles; for correct input it never fires.
-
-    API: https://cadd.gs.washington.edu/api/v1.0/GRCh38-v1.7/{chr}:{pos}-{pos}
-    Returns dict(cadd_raw, cadd_phred) or None values on miss.
-    """
-    url = f"https://cadd.gs.washington.edu/api/v1.0/GRCh38-v1.7/{chrom}:{pos}-{pos}"
-    comp = {"A": "T", "T": "A", "C": "G", "G": "C"}
-    try:
-        data = requests.get(url, timeout=15).json()
-    except Exception as exc:                                    # network / JSON
-        return {"cadd_raw": None, "cadd_phred": None, "error": str(exc)}
-    header = data[0] if data else []
-    for rec in data[1:]:
-        if len(rec) < 6:
-            continue
-        r, a = rec[2], rec[3]
-        if (r == ref and a == alt) or (r == comp.get(ref) and a == comp.get(alt)):
-            time.sleep(delay_sec)
-            return {"cadd_raw": float(rec[4]), "cadd_phred": float(rec[5])}
-    time.sleep(delay_sec)
-    return {"cadd_raw": None, "cadd_phred": None}
-
-
-# =============================================================================
-# 5. Missense predictors — EVE / ESM1b / REVEL / PrimateAI
+# 4. Missense predictors — EVE / ESM1b / REVEL / PrimateAI
 #    REAL when the data/*.csv extract exists; DEMO fallback otherwise.
 # =============================================================================
-# Each loader returns REAL scores once you have built its `data/<tool>.csv`
-# extract locally (build_*.py; see data/README.md). None of those CSVs ship in
+# Each loader returns REAL scores once you have run its owning notebook's build
+# cell to produce `data/<tool>.csv` locally (see data/README.md). None of those CSVs ship in
 # the repo (data/ is gitignored), so on a fresh clone every loader falls back to
 # the small curated DEMO table below. The returned `source` column ("REAL"/"DEMO")
 # always tells you which you got; pass strict=True to raise instead of falling back.
@@ -387,8 +351,8 @@ def _missing_extract(name: str, path: Path, strict: bool) -> None:
     extract masquerade as a successful REAL load.
     """
     msg = (f"{name}: real extract not found at {path} — returning the DEMO "
-           f"fallback table (source='DEMO'). Build it with the matching "
-           f"build_*.py (see data/README.md), or pass strict=True to raise.")
+           f"fallback table (source='DEMO'). Run the build cell in that tool's "
+           f"own notebook (see data/README.md), or pass strict=True to raise.")
     if strict:
         raise FileNotFoundError(msg)
     warnings.warn(msg, stacklevel=3)
@@ -432,8 +396,9 @@ def load_eve(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     circularity vs ClinVar.
 
     REAL if the extract exists (`data/eve_cftr_2021-08.csv`, ~26,809 scored
-    variants) built by build_eve.py from the EVE release (evemodel.org, CFTR =
-    UniProt P13569); keyed by the 1-letter protein_variant. Columns:
+    variants), built by the manual-download build cell in tools/03_eve.ipynb
+    from the EVE release (evemodel.org, CFTR = UniProt P13569); keyed by the
+    1-letter protein_variant. Columns:
     protein_variant, eve_score, eve_class, source. The extract is gitignored, so
     on a fresh clone this falls back to the tiny curated DEMO table (source='DEMO')
     with a warning — pass strict=True to raise instead, or demo=True to request the
@@ -458,8 +423,9 @@ def load_esm1b(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     Cut: LLR <= -7.5 ~ pathogenic. Unsupervised → low circularity.
 
     REAL if the extract exists: full CFTR **saturation** LLR (~28,120 variants, all
-    1,480 residues) from `data/esm1b_cftr.csv`, built by build_esm1b.py from the
-    ntranoslab esm_variants release (canonical UniProt **P13569**). protein_variant
+    1,480 residues) from `data/esm1b_cftr.csv`, built by the manual-download build
+    cell in tools/04_esm1b.ipynb from the ntranoslab esm_variants release
+    (canonical UniProt **P13569**). protein_variant
     keyed. The extract is gitignored → fresh clone falls back to the DEMO table
     (source='DEMO') with a warning; strict=True raises, demo=True is silent.
     """
@@ -483,10 +449,11 @@ def load_revel(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
     ⚠ CIRCULARITY: REVEL's training labels share lineage with ClinVar/HGMD, so
     'REVEL disagrees with ClinVar' can partly reflect label leakage, not
-    independent evidence. Handled in notebook 12.
+    independent evidence. Handled in tools/10.
 
-    REAL if the extract exists: genome-wide REVEL v1.3 for CFTR (~10,826 variants)
-    from `data/revel_cftr_v1.3.csv`, built by build_revel.py. **Keyed by genomic
+    REAL if the extract exists: genome-wide REVEL v1.3 for CFTR (~10,127 variants)
+    from `data/revel_cftr_v1.3.csv`, built by the manual-download build cell in
+    tools/05_revel.ipynb. **Keyed by genomic
     coordinate** (chrom,pos,ref,alt) — the REVEL table has no protein position, so
     join it onto observed variants by coordinate, not protein_variant. (CFTR is
     plus-strand, so the coding alleles match the genomic ref/alt directly.) Non-commercial license. The extract is gitignored → fresh
@@ -515,7 +482,8 @@ def load_primateai(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     Score in [0,1]; >= 0.803 ~ pathogenic. Medium circularity.
 
     REAL if the extract exists: PrimateAI for CFTR from `data/primateai_cftr.csv`,
-    built by build_primateai.py from the **dbNSFP v5.0a** parquet. ⚠ COVERAGE:
+    built by the manual-download build cell in tools/06_primateai.ipynb from the
+    **dbNSFP v5.0a** parquet. ⚠ COVERAGE:
     dbNSFP's ClinVar-re-annotated subset, so ~1,976 observed CFTR variants (NOT
     saturation). protein_variant + coordinate keyed. Non-commercial. The extract is
     gitignored → fresh clone falls back to the DEMO table (source='DEMO') with a
@@ -542,11 +510,12 @@ def load_cftr2(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     ⚠ It is NOT an independent gold standard: CFTR2 and ClinVar share clinical/
     patient evidence, ClinVar entries cite CFTR2, and CFTR2 informs the ACMG CFTR
     guidance that ClinVar submitters follow — so benchmarking against it is not
-    circularity-free (notebook 12).
+    circularity-free (tools/10).
 
     REAL if the extract exists: the full public CFTR2 variant list (30 January 2026
-    release, ~2,097 variants) built from the official cftr2.org download by
-    ``build_cftr2.py`` into ``data/cftr2_2026-01-30.csv``. Returns a 1-letter
+    release, ~2,097 variants) built from a manually-downloaded cftr2.org workbook
+    by the build cell in benchmark/01_cftr2.ipynb into
+    ``data/cftr2_2026-01-30.csv``. Returns a 1-letter
     ``protein_variant`` key (e.g. 'G551D') for the ~780 simple-missense variants
     so it joins onto the AlphaMissense/gnomAD tables; non-missense rows carry an
     empty key but keep their legacy/cDNA names and genomic coordinates.
@@ -575,7 +544,7 @@ def load_cftr2_demo() -> pd.DataFrame:
 
 
 # =============================================================================
-# 6. SpliceAI / Pangolin — DEMO curated splice variants
+# 5. SpliceAI / Pangolin — DEMO curated splice variants
 # =============================================================================
 # 9 hand-curated CFTR splice variants. The SpliceAI/Pangolin numbers below are
 # ILLUSTRATIVE (source='DEMO'), NOT the output of a real SpliceAI/Pangolin run.
@@ -644,7 +613,8 @@ def load_spliceai(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
     REAL if the extract exists: the precomputed Illumina **SpliceAI v1.3** scores for
     the whole CFTR region (`data/spliceai_cftr_2021_v1.3.csv`, ~2.08 M records), built
-    by build_spliceai.py. Keyed by genomic coordinate (chrom,pos,ref,alt); columns
+    by the manual-download build cell in tools/07_spliceai.ipynb (a hand-rolled .tbi
+    seek, since pysam doesn't build on Windows). Keyed by genomic coordinate (chrom,pos,ref,alt); columns
     DS_AG/DS_AL/DS_DG/DS_DL and spliceai_ds_max (>= 0.5 high, >= 0.2 moderate). Join
     onto observed variants (e.g. gnomAD non-coding) by coordinate to build the real A2
     splice worklist.
@@ -652,7 +622,7 @@ def load_spliceai(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     **SNVs *and* indels** (~566 k + ~1.51 M). The indels matter: no missense predictor
     can score one, so without them every CFTR2 deletion/insertion was invisible to every
     tool — including F508del, which SpliceAI scores DS_max = 0.01 (correct: it is a
-    folding defect, not a splice one). See notebook 13.
+    folding defect, not a splice one). See predict/13.
 
     ⚠ The extract is usually **MIXED masked/raw**: Illumina's `masked.indel` release is
     very often a 0-byte failed download, so the builder falls back to `raw.indel` while
@@ -685,21 +655,21 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
     Pangolin (Zeng & Li 2022, Genome Biol 23:103, PMID 35449021,
     github.com/tkzeng/Pangolin) has no precomputed per-gene release and is not in
-    dbNSFP, so real scores require RUNNING the model: ``build_pangolin.py`` does
-    that locally (weights bundled with the pip package; only the ~215 kb CFTR
-    reference region is needed, no whole-genome download). Score 0-1, >= 0.5 high,
-    >= 0.2 moderate; keyed by genomic coordinate.
+    dbNSFP, so real scores require RUNNING the model: the build cell in
+    tools/08_pangolin.ipynb does that locally (weights bundled with the pip
+    package; only the ~215 kb CFTR reference region is needed, no whole-genome
+    download). Score 0-1, >= 0.5 high, >= 0.2 moderate; keyed by genomic coordinate.
 
-    REAL if the extract exists (``data/pangolin_cftr.csv``). ``build_pangolin.py
-    --scope cftr2`` (the default) scores every CFTR2 variant carrying GRCh38
+    REAL if the extract exists (``data/pangolin_cftr.csv``). The build cell's
+    default ``SCOPE = "cftr2"`` scores every CFTR2 variant carrying GRCh38
     coordinates — ~1,892 of 2,097, **SNVs and indels** — and labels the result
-    ``source='REAL'``; ``--scope curated`` scores just the 5 classic splice alleles
+    ``source='REAL'``; ``SCOPE = "curated"`` scores just the 5 classic splice alleles
     and stays ``source='DEMO'``, because that coverage is a teaching subset rather
     than a worklist. The label follows the *scope*, never the model. Rows that could
     not be scored are kept with an empty score and a ``skip_reason``.
 
     Because Pangolin is run locally it reaches variant classes the precomputed
-    masked-SNV SpliceAI release cannot (notably indels) — but see notebook 13: a
+    masked-SNV SpliceAI release cannot (notably indels) — but see predict/13: a
     Pangolin score on a frameshift is a *splice* verdict, and "no splice impact" is
     usually correct and rarely the reason the variant is pathogenic.
 
@@ -708,7 +678,7 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     """
     if not demo and PANGOLIN_CSV.exists():
         df = pd.read_csv(PANGOLIN_CSV)
-        return df  # source column set by build_pangolin.py (DEMO for curated scope)
+        return df  # source column set by the build cell (DEMO for curated scope)
     if not demo:
         _missing_extract("Pangolin", PANGOLIN_CSV, strict)
     d = load_splice_demo()
@@ -716,105 +686,24 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
 
 # =============================================================================
-# 7. Shared curated "worked-example" panels (A1 missense / A2 splice)
+# 6. Shared curated "worked-example" panels (A1 missense / A2 splice)
 # =============================================================================
 # A fixed panel of famous CFTR variants scored by EVERY tool, so a reader can
-# follow the SAME variants through all the per-tool notebooks (A1 -> 01-08,
-# A2 -> 09-11). Uses REAL extracts where they exist; missing extracts -> NaN.
+# follow the SAME variants through all the per-tool notebooks. Each notebook
+# scores this panel itself, inline, with its own loader -- see e.g.
+# tools/02_alphamissense.ipynb's "shared missense worked-example panel" section.
 
 # The shared A1 panel membership (famous CFTR missense variants, 1-letter keys) —
 # single source of truth for WHICH variants; each notebook shows its own SCORING.
 A1_PANEL_VARIANTS = [three_to_one(v[0]) for v in _DEMO_MISSENSE]
 
-
-def a1_panel() -> pd.DataFrame:
-    """The curated A1 (missense) panel scored by every missense tool — REAL.
-
-    ~14 famous CFTR missense variants x {gnomAD AF, AlphaMissense, EVE, ESM1b,
-    REVEL, PrimateAI} plus the CFTR2 / ClinVar truth. Protein-keyed tools join on
-    ``protein_variant``; **REVEL is coordinate-keyed**, so it is bridged via each
-    variant's gnomAD genomic coordinate — a live demo of the join-key lesson.
-    Any tool whose extract is absent contributes NaN (fresh-clone safe).
-    """
-    demo = _demo_frame()
-    demo["protein_variant"] = demo["protein_variant"].apply(three_to_one)
-    panel = demo[["protein_variant"]].copy()
-
-    def _try_merge(load, col, out, key="protein_variant"):
-        try:
-            d = load()[[key, col]].drop_duplicates(key).rename(columns={col: out})
-            return panel.merge(d, on=key, how="left")
-        except Exception:
-            panel[out] = np.nan
-            return panel
-
-    try:
-        g = load_gnomad_missense()[["protein_variant", "variant_id", "gnomad_af"]].drop_duplicates("protein_variant")
-        panel = panel.merge(g, on="protein_variant", how="left")
-    except Exception:
-        panel["variant_id"] = None
-        panel["gnomad_af"] = np.nan
-    for load, col, out in [(load_alphamissense, "am_score", "AM"), (load_eve, "eve_score", "EVE"),
-                           (load_esm1b, "esm1b_score", "ESM1b"), (load_primateai, "primate_ai_score", "PAI")]:
-        panel = _try_merge(load, col, out)
-    # REVEL: coordinate-keyed -> look up by the gnomAD variant_id (chrom-pos-ref-alt)
-    try:
-        rev = load_revel()
-        def _rev(vid):
-            if not isinstance(vid, str):
-                return np.nan
-            p = vid.split("-")
-            if len(p) != 4:
-                return np.nan
-            h = rev[(rev["pos"] == int(p[1])) & (rev["ref"] == p[2]) & (rev["alt"] == p[3])]
-            return h["revel_score"].iloc[0] if len(h) else np.nan
-        panel["REVEL"] = panel["variant_id"].apply(_rev)
-    except Exception:
-        panel["REVEL"] = np.nan
-    panel = _try_merge(load_cftr2, "cftr2_class", "cftr2_class")
-    panel = _try_merge(load_clinvar, "clinvar_call", "clinvar_call")
-    return panel[["protein_variant", "gnomad_af", "AM", "EVE", "ESM1b", "REVEL",
-                  "PAI", "cftr2_class", "clinvar_call"]]
-
-
-# Known CF splice alleles for the A2 panel — looked up by CFTR2 cDNA name so we use
-# the AUTHORITATIVE GRCh38 coordinates (not the demo's hand-entered ones).
+# Known CF splice alleles for the A2 panel — looked up by CFTR2 cDNA name so each
+# notebook can use the AUTHORITATIVE GRCh38 coordinates (not the demo's hand-entered ones).
 A2_KNOWN_CDNA = ["c.2988+1G>A", "c.2657+5G>A", "c.3718-2477C>T", "c.3140-26A>G", "c.1680-886A>G"]
 
 
-def a2_panel(cadd: bool = False) -> pd.DataFrame:
-    """The curated A2 (splice) panel scored by every splice tool — REAL.
-
-    Known CF splice alleles with **correct CFTR2 GRCh38 coordinates** x
-    {SpliceAI (real), Pangolin (real, from build_pangolin.py)} plus optional live
-    CADD (``cadd=True``; one API call per row). Coordinate-keyed. Needs the CFTR2
-    and SpliceAI extracts; Pangolin needs build_pangolin.py to have run.
-    """
-    cf = load_cftr2()
-    a2 = (cf[cf["cdna_name"].isin(A2_KNOWN_CDNA)]
-          [["cdna_name", "legacy_name", "grch38_pos", "grch38_ref", "grch38_alt", "cftr2_class"]]
-          .dropna(subset=["grch38_pos"]).copy())
-    a2["pos"] = a2["grch38_pos"].astype(int)
-    sp = load_spliceai()
-
-    def _sa(r):
-        h = sp[(sp["pos"] == r["pos"]) & (sp["ref"] == r["grch38_ref"]) & (sp["alt"] == r["grch38_alt"])]
-        return round(float(h["spliceai_ds_max"].iloc[0]), 4) if len(h) else np.nan
-    a2["SpliceAI"] = a2.apply(_sa, axis=1)
-    try:
-        pg = load_pangolin()[["cdna_name", "pangolin_score"]].rename(columns={"pangolin_score": "Pangolin"})
-        a2 = a2.merge(pg, on="cdna_name", how="left")
-    except Exception:
-        a2["Pangolin"] = np.nan
-    cols = ["cdna_name", "legacy_name", "pos", "SpliceAI", "Pangolin"]
-    if cadd:
-        a2["CADD"] = a2.apply(lambda r: fetch_cadd("7", r["pos"], r["grch38_ref"], r["grch38_alt"]).get("cadd_phred"), axis=1)
-        cols.append("CADD")
-    return a2[cols + ["cftr2_class"]].reset_index(drop=True)
-
-
 # =============================================================================
-# 8. Scoring helpers — turn a raw score into a 3-class call
+# 7. Scoring helpers — turn a raw score into a 3-class call
 # =============================================================================
 def call_from_score(score, tool: str) -> str:
     """Map a raw score to {'pathogenic','uncertain','benign'} using THRESHOLDS.
@@ -882,8 +771,9 @@ def extract_hgvsp_from_name(name) -> str | None:
 if __name__ == "__main__":
     # smoke test — prints each loader's row count and its ACTUAL source column
     # (REAL when the extract/cache exists, DEMO fallback otherwise), so the label
-    # can never disagree with what was loaded. Cache-only loaders raise if the
-    # _tmp_fetch/ file is missing; catch that so the smoke test still completes.
+    # can never disagree with what was loaded. The three live-fetched loaders
+    # (gnomAD, AlphaMissense, ClinVar) raise if data/ is missing; catch that so
+    # the smoke test still completes.
     def _src(df):
         return df["source"].iloc[0] if len(df) and "source" in df else "n/a"
 
@@ -904,5 +794,7 @@ if __name__ == "__main__":
     _try("PrimateAI", load_primateai)
     _try("CFTR2", load_cftr2)
     _try("SpliceAI", load_spliceai)
+    _try("Pangolin", load_pangolin)
     _try("splice demo", load_splice_demo)
-    print("CADD live 2988+1:", fetch_cadd("7", 117_592_260, "C", "T"))
+    # CADD has no thin reader here -- fetch_cadd() now lives in tools/09_cadd.ipynb
+    # (it needs no local file at all, so there was nothing left to smoke-test here).

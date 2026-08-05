@@ -8,9 +8,10 @@ Usage:
     python verify_data.py            # check local extracts' sha256 vs manifest
     python verify_data.py --update   # recompute + write hashes/rows for local extracts
 
-Only 'derived_extract' entries (the small locally-built CSVs) are hashed. External
-caches (_tmp_fetch/*) and live APIs are documented in the manifest but not hashed
-here — they are reproduced via their build scripts / endpoints.
+Only 'derived_extract' entries (the small locally-built CSVs) are hashed.
+'live_fetch' entries and live APIs are documented in the manifest but not hashed
+here — they are reproduced via the fetch/build cell in their owning notebook
+(see data/README.md), and a couple (ClinVar) can legitimately change between runs.
 """
 from __future__ import annotations
 import hashlib

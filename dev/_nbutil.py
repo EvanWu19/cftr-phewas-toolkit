@@ -3,13 +3,13 @@ _nbutil.py — tiny helper so every toolkit notebook is built identically.
 
 Usage:
     from _nbutil import md, code, write_notebook
-    write_notebook("notebooks/01_gnomad.ipynb", [
+    write_notebook("tools/01_gnomad.ipynb", [
         md("# Title\n\nSome explanation."),
         code("import toolkit as tk\ntk.load_gnomad_missense().head()"),
     ])
 
 Notebooks are written un-executed; run them with:
-    jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
+    jupyter nbconvert --to notebook --execute --inplace tools/*.ipynb benchmark/*.ipynb
 """
 from __future__ import annotations
 import nbformat as nbf
