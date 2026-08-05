@@ -22,3 +22,6 @@ archive/
 
 # stray / non-CFTR working files
 *.parquet
+
+# internal planning docs, never published
+plan/
