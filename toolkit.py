@@ -719,19 +719,12 @@ def load_pangolin(demo: bool = False, strict: bool = False) -> pd.DataFrame:
 
 
 # =============================================================================
-# 6. Shared curated "worked-example" panels (A1 missense / A2 splice)
+# 6. Shared curated "worked-example" panel (splice)
 # =============================================================================
-# A fixed panel of famous CFTR variants scored by EVERY tool, so a reader can
-# follow the SAME variants through all the per-tool notebooks. Each notebook
-# scores this panel itself, inline, with its own loader -- see e.g.
-# tools/02_alphamissense.ipynb's "shared missense worked-example panel" section.
-
-# The shared A1 panel membership (famous CFTR missense variants, 1-letter keys) —
-# single source of truth for WHICH variants; each notebook shows its own SCORING.
-A1_PANEL_VARIANTS = [three_to_one(v[0]) for v in _DEMO_MISSENSE]
-
-# Known CF splice alleles for the A2 panel — looked up by CFTR2 cDNA name so each
-# notebook can use the AUTHORITATIVE GRCh38 coordinates (not the demo's hand-entered ones).
+# Known CF splice alleles for the splice-tool worked-example panel — looked up by
+# CFTR2 cDNA name so each notebook can use the AUTHORITATIVE GRCh38 coordinates
+# (not hand-entered ones). Each notebook scores this panel itself, inline, with
+# its own loader -- see e.g. tools/09_cadd.ipynb's worked-example section.
 A2_KNOWN_CDNA = ["c.2988+1G>A", "c.2657+5G>A", "c.3718-2477C>T", "c.3140-26A>G", "c.1680-886A>G"]
 
 
