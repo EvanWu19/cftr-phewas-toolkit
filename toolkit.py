@@ -89,7 +89,7 @@ DATA_DIR = PKG_DIR / "data"           # gitignored; built by each notebook's fet
 OUT_DIR  = PKG_DIR / "outputs"
 OUT_DIR.mkdir(exist_ok=True)
 
-CFTR2_CSV     = DATA_DIR / "cftr2_2026-01-30.csv"           # benchmark/01
+CFTR2_CSV     = DATA_DIR / "cftr2_cftr.csv"                 # benchmark/01
 EVE_CSV       = DATA_DIR / "eve_cftr_2021-08.csv"            # tools/03
 SPLICEAI_CSV  = DATA_DIR / "spliceai_cftr_2021_v1.3.csv"     # tools/07
 ESM1B_CSV     = DATA_DIR / "esm1b_cftr.csv"                  # tools/04
@@ -535,13 +535,17 @@ def load_cftr2(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     guidance that ClinVar submitters follow — so benchmarking against it is not
     circularity-free (tools/10).
 
-    REAL if the extract exists: the full public CFTR2 variant list (30 January 2026
-    release, ~2,097 variants) built from a manually-downloaded cftr2.org workbook
-    by the build cell in benchmark/01_cftr2.ipynb into
-    ``data/cftr2_2026-01-30.csv``. Returns a 1-letter
+    The full public CFTR2 variant list (~2,097 variants), built from a
+    manually-downloaded cftr2.org workbook by the build cell in
+    benchmark/01_cftr2.ipynb into ``data/cftr2_cftr.csv``. Returns a 1-letter
     ``protein_variant`` key (e.g. 'G551D') for the ~780 simple-missense variants
     so it joins onto the AlphaMissense/gnomAD tables; non-missense rows carry an
-    empty key but keep their legacy/cDNA names and genomic coordinates.
+    empty key but keep their legacy/cDNA names and genomic coordinates. Also
+    returns ``cftr2_release``: the release date embedded in whichever workbook
+    was actually used to build the extract (from ``data/cftr2_cftr.release.json``,
+    written alongside it) — CFTR2 has no historical archive to pin against
+    (checked; unlike ClinVar), so reproducing a past run means manually
+    obtaining that older workbook from cftr2.org yourself.
 
     The extract is gitignored (CFTR2's data-use terms allow local use; rebuild it
     yourself from cftr2.org — see data/README.md), so a fresh clone falls back to
@@ -551,6 +555,12 @@ def load_cftr2(demo: bool = False, strict: bool = False) -> pd.DataFrame:
     if not demo and CFTR2_CSV.exists():
         df = pd.read_csv(CFTR2_CSV, dtype={"protein_variant": "string"})
         df["protein_variant"] = df["protein_variant"].fillna("")
+        release_fp = DATA_DIR / "cftr2_cftr.release.json"
+        if release_fp.exists():
+            import json
+            df["cftr2_release"] = json.loads(release_fp.read_text())["release_date"]
+        else:
+            df["cftr2_release"] = "unknown (pre-dates release tracking; re-run the build cell)"
         df["source"] = "REAL"
         return df
     if not demo:

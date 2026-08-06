@@ -59,13 +59,13 @@
     "cftr2": {
       "notebook": "benchmark/01",
       "kind": "derived_extract",
-      "local_file": "data/cftr2_2026-01-30.csv",
+      "local_file": "data/cftr2_cftr.csv",
       "sha256": "298dbc42e3496a477641c8e6a6f69cc1d4feef9c749bc78f8235ccae90215813",
       "rows": 2097,
       "built_by": "benchmark/01_cftr2.ipynb (build cell; manual xlsx download)",
       "raw_source": "data/CFTR2_30January2026.xlsx (external, not committed)",
       "source": "https://cftr2.org variant-list history tab",
-      "version": "CFTR2 release 2026-01-30",
+      "version": "Release date is read from the workbook's own header and recorded in data/cftr2_cftr.release.json (currently '30 January 2026'). No historical archive exists on cftr2.org (checked) -- reproducing a past run means manually sourcing that older workbook yourself.",
       "retrieval_date": "2026-07-01",
       "license": "CFTR2 public data-use terms (cite CFTR2); expert-panel calls also in ClinVar under CC0",
       "publishable": "yes"

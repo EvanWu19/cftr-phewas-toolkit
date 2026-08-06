@@ -35,13 +35,13 @@ version of everything below).
 
 | Tool | Save-as in `data/` | Rows | Notebook | Manual download | Source | License |
 |---|---|---|---|---|---|---|
-| **CFTR2** | `cftr2_2026-01-30.csv` | 2,097 | `benchmark/01_cftr2.ipynb` | `CFTR2_30January2026.xlsx` | cftr2.org variant-list history tab | CFTR2 public data-use terms — **cite CFTR2** |
+| **CFTR2** | `cftr2_cftr.csv` + `cftr2_cftr.release.json` | 2,097 | `benchmark/01_cftr2.ipynb` | `CFTR2_30January2026.xlsx` (filename configurable in the build cell) | cftr2.org variant-list history tab | CFTR2 public data-use terms — **cite CFTR2** |
 | **EVE** | `eve_cftr_2021-08.csv` | 26,809 | `tools/03_eve.ipynb` | `EVE_all_data.zip` → reads only `variant_files/CFTR_HUMAN.csv` from inside it | https://evemodel.org (release 2021-08, UniProt P13569) | EVE / evemodel.org terms — **CONFIRM before publishing** |
 | **ESM1b** | `esm1b_cftr.csv` | 28,120 | `tools/04_esm1b.ipynb` | `ALL_hum_isoforms_ESM1b_LLR.zip` → reads only `…/P13569_LLR.csv` from inside it | HuggingFace Space `ntranoslab/esm_variants` | MIT (code); scores per publication |
 | **REVEL** | `revel_cftr_v1.3.csv` | 10,826 (→ 10,127 unique coordinates) | `tools/05_revel.ipynb` | `revel-v1.3_all_chromosomes.zip` → streams `revel_with_transcript_ids` (6.5 GB member, stops after chr7) | https://sites.google.com/site/revelgenomics | **Non-commercial** (contact authors otherwise) |
 | **PrimateAI** | `primateai_cftr.csv` | 1,976 | `tools/06_primateai.ipynb` | `dbNSFP5.0a_variant.…parquet` (reads only chromosome 7's columns) | dbNSFP v5.0a (Zenodo 15131632), `PrimateAI_score` column | dbNSFP **CC BY-NC-ND**; PrimateAI non-commercial |
 | **SpliceAI** | `spliceai_cftr_2021_v1.3.csv` | ~2.08M (566,106 SNVs + 1,509,624 indels) | `tools/07_spliceai.ipynb` | `spliceai_scores.masked.snv.hg38.vcf.gz` + `.tbi` (~28.6 GB) and `spliceai_scores.raw.indel.hg38.vcf.gz` + `.tbi` (~69.3 GB) — the notebook seeks directly to the CFTR region via the `.tbi` index, never reading the full files | Illumina BaseSpace share https://basespace.illumina.com/s/otSPW8hnhaZR (`genome_scores_v1.3`) | **CC BY-NC 4.0** — attribute SpliceAI + Illumina |
-| **Pangolin** | `pangolin_cftr.csv` | ~1,892 scored / 2,097 targets | `tools/08_pangolin.ipynb` | No data file — `pip install` the model package; the notebook auto-fetches+caches the ~215 kb CFTR reference region from Ensembl on first run (no whole-genome download) and needs `data/cftr2_2026-01-30.csv` built first | github.com/tkzeng/Pangolin (Zeng & Li 2022, PMID 35449021) | non-commercial |
+| **Pangolin** | `pangolin_cftr.csv` | ~1,892 scored / 2,097 targets | `tools/08_pangolin.ipynb` | No data file — `pip install` the model package; the notebook auto-fetches+caches the ~215 kb CFTR reference region from Ensembl on first run (no whole-genome download) and needs `data/cftr2_cftr.csv` built first | github.com/tkzeng/Pangolin (Zeng & Li 2022, PMID 35449021) | non-commercial |
 
 Notes:
 - **EVE** carries an unconfirmed publishing license — treat the extract as local-only
@@ -58,6 +58,11 @@ Notes:
   CFTR2 variant with GRCh38 coordinates and labels the result `source='REAL'`;
   `SCOPE = "curated"` scores just 5 classic alleles and stays `source='DEMO'` —
   the label follows coverage, never the model.
+- **CFTR2 has no historical archive** (checked directly against cftr2.org —
+  there is no dated-release listing, unlike ClinVar). The build cell reads
+  whatever release date is in the workbook's own header and records it in
+  `cftr2_cftr.release.json`; reproducing a past run means manually sourcing
+  that older workbook from cftr2.org yourself.
 
 ---
 
