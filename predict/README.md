@@ -99,7 +99,7 @@ All **REAL data** — including Pangolin, now that it is run at CFTR2 scale. The
 these extracts built first, by running the fetch/build cell in each tool's own notebook; see
 [`../data/README.md`](../data/README.md):
 
-- `data/cftr2_2026-01-30.csv` (`benchmark/01_cftr2.ipynb`) — the benchmark itself, required
+- `data/cftr2_cftr.csv` (`benchmark/01_cftr2.ipynb`) — the benchmark itself, required
 - `data/eve_cftr_2021-08.csv`, `esm1b_cftr.csv`, `revel_cftr_v1.3.csv`, `primateai_cftr.csv`,
   `spliceai_cftr_2021_v1.3.csv` — one manual-download build cell each (`tools/03`–`tools/07`)
 - `data/pangolin_cftr.csv` — `tools/08_pangolin.ipynb`'s build cell (runs the model; ~4 min on a GPU)
